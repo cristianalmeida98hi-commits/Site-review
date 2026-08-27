@@ -1,0 +1,6 @@
+{
+  "name": "ReviewHub",
+  "description": "Plataforma especializada em reviews, avaliações, comparativos e descoberta de produtos para compra com análises de especialistas e criadores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
