@@ -6,13 +6,37 @@ import type {
 
 const API_BASE = '/api';
 
+export const getStoredUserId = (): string | null => {
+  try {
+    return localStorage.getItem('reviewhub_active_user_id');
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredUserId = (userId: string | null) => {
+  try {
+    if (userId) {
+      localStorage.setItem('reviewhub_active_user_id', userId);
+    } else {
+      localStorage.removeItem('reviewhub_active_user_id');
+    }
+  } catch (e) {
+    console.error('Failed to access localStorage', e);
+  }
+};
+
 export async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const activeUserId = getStoredUserId();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(activeUserId ? { 'x-user-id': activeUserId } : {}),
+    ...(options?.headers as Record<string, string> || {})
+  };
+
   const res = await fetch(`${API_BASE}${url}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers
-    }
+    headers
   });
 
   if (!res.ok) {
@@ -26,11 +50,13 @@ export async function fetchJson<T>(url: string, options?: RequestInit): Promise<
 export const apiService = {
   // Auth
   getCurrentUser: () => fetchJson<{ user: User }>('/auth/me'),
-  login: (email: string) => fetchJson<{ success: boolean; user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ email }) }),
+  login: (email: string, password?: string) => fetchJson<{ success: boolean; user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   switchProfile: (userId: string) => fetchJson<{ success: boolean; user: User }>('/auth/switch-profile', { method: 'POST', body: JSON.stringify({ userId }) }),
   register: (data: Partial<User>) => fetchJson<{ success: boolean; user: User }>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  forgotPassword: (email: string) => fetchJson<{ success: boolean; message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   logout: () => fetchJson<{ success: boolean }>('/auth/logout', { method: 'POST' }),
   getAllUsers: () => fetchJson<User[]>('/users'),
+  updateProfile: (data: Partial<User>) => fetchJson<{ success: boolean; user: User }>('/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Products & Categories
   getProducts: (params?: Record<string, string | number | undefined>) => {

@@ -944,15 +944,27 @@ let adBanners: AdBanner[] = [
   }
 ];
 
-// --- AUTH HELPER / MOCK SESSION STATE ---
-let currentSessionUser: User = users[1]; // Default to João Tech (Creator) for immediate feature richness
+// --- AUTH HELPER / SESSION RESOLVER ---
+let currentSessionUser: User = users[1]; // Fallback default (João Tech - Creator)
 
-// Helper function to extract youtube video ID safely
+// Helper function to extract authenticated user from request header or session
+function getAuthUser(req: express.Request): User {
+  const headerUserId = req.headers['x-user-id'] as string | undefined;
+  if (headerUserId) {
+    const user = users.find(u => u.id === headerUserId);
+    if (user) return user;
+  }
+  return currentSessionUser;
+}
+
+// Robust helper function to extract youtube video ID safely across all standard formats
 function extractYouTubeId(url?: string): string | undefined {
-  if (!url) return undefined;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : undefined;
+  if (!url || typeof url !== 'string') return undefined;
+  const cleanUrl = url.trim();
+  // Match youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, youtube.com/shorts/ID, etc.
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const match = cleanUrl.match(regExp);
+  return match && match[1] ? match[1] : undefined;
 }
 
 // ==========================================
@@ -961,18 +973,35 @@ function extractYouTubeId(url?: string): string | undefined {
 
 // --- AUTH & USER ENDPOINTS ---
 app.get('/api/auth/me', (req, res) => {
-  res.json({ user: currentSessionUser });
+  const user = getAuthUser(req);
+  res.json({ user });
 });
 
 app.post('/api/auth/login', (req, res) => {
   const { email } = req.body;
-  const user = users.find(u => u.email.toLowerCase() === email?.toLowerCase());
+  if (!email) {
+    return res.status(400).json({ error: 'Por favor, informe seu email.' });
+  }
+  const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
   if (user) {
     currentSessionUser = user;
-    res.json({ success: true, user: currentSessionUser });
+    res.json({ success: true, user });
   } else {
-    // Return friendly error
-    res.status(401).json({ error: 'Usuário não encontrado. Selecione um perfil de demonstração ou crie uma conta.' });
+    res.status(401).json({ error: 'Email não encontrado. Cadastre-se gratuitamente ou escolha um perfil de teste.' });
+  }
+});
+
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Informe seu endereço de email.' });
+  }
+  const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (user) {
+    res.json({ success: true, message: `Um link seguro de recuperação de senha foi enviado para ${email}. Verifique sua caixa de entrada.` });
+  } else {
+    // Return friendly generic confirmation for privacy
+    res.json({ success: true, message: `Se o email ${email} estiver cadastrado, um link de recuperação foi enviado.` });
   }
 });
 
@@ -981,43 +1010,65 @@ app.post('/api/auth/switch-profile', (req, res) => {
   const user = users.find(u => u.id === userId);
   if (user) {
     currentSessionUser = user;
-    res.json({ success: true, user: currentSessionUser });
+    res.json({ success: true, user });
   } else {
-    res.status(404).json({ error: 'Perfil não encontrado.' });
+    res.status(404).json({ error: 'Perfil de demonstração não encontrado.' });
   }
 });
 
 app.post('/api/auth/register', (req, res) => {
   const { name, email, role, username, bio, youtubeChannelUrl } = req.body;
-  if (!name || !email) {
+  if (!name || !name.trim() || !email || !email.trim()) {
     return res.status(400).json({ error: 'Nome e email são obrigatórios.' });
   }
-  const cleanUsername = username ? username.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() : name.toLowerCase().replace(/\s+/g, '');
+
+  // Check email collision
+  const existing = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (existing) {
+    return res.status(400).json({ error: 'Este endereço de email já está cadastrado. Faça login ou use outro email.' });
+  }
+
+  const cleanUsername = username 
+    ? username.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() 
+    : name.toLowerCase().replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '');
+
   const newUser: User = {
     id: `user_${Date.now()}`,
-    name,
-    email,
-    username: cleanUsername,
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
+    username: cleanUsername || `user_${Date.now().toString().slice(-4)}`,
     role: (role === 'CREATOR' || role === 'ADMIN') ? role : 'USER',
-    avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+    avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername || Date.now()}`,
     bio: bio || 'Entusiasta de tecnologia no ReviewHub.',
     creatorLevel: role === 'CREATOR' ? 'Novato' : undefined,
     reputationScore: 10,
-    badges: role === 'CREATOR' ? ['🌱 Novo Criador'] : ['🌱 Bem-vindo'],
+    badges: role === 'CREATOR' ? ['🌱 Novo Criador'] : ['🌱 Membro da Comunidade'],
     balance: 0,
     pendingBalance: 0,
     totalEarnings: 0,
-    youtubeChannelUrl: youtubeChannelUrl || undefined,
+    youtubeChannelUrl: youtubeChannelUrl ? youtubeChannelUrl.trim() : undefined,
     createdAt: new Date().toISOString()
   };
+
   users.push(newUser);
   currentSessionUser = newUser;
   res.json({ success: true, user: newUser });
 });
 
+app.put('/api/auth/profile', (req, res) => {
+  const user = getAuthUser(req);
+  const { name, bio, youtubeChannelUrl, avatarUrl } = req.body;
+  
+  if (name) user.name = name.trim();
+  if (bio !== undefined) user.bio = bio;
+  if (youtubeChannelUrl !== undefined) user.youtubeChannelUrl = youtubeChannelUrl;
+  if (avatarUrl) user.avatarUrl = avatarUrl;
+
+  res.json({ success: true, user });
+});
+
 app.post('/api/auth/logout', (req, res) => {
-  // Switch to guest/default user
-  currentSessionUser = users[4]; // standard user
+  currentSessionUser = users[4] || users[0];
   res.json({ success: true });
 });
 
@@ -1031,18 +1082,19 @@ app.get('/api/settings', (req, res) => {
 });
 
 app.put('/api/settings', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem alterar as configurações.' });
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem alterar as configurações da plataforma.' });
   }
   settings = { ...settings, ...req.body };
   adminLogs.unshift({
     id: `log_${Date.now()}`,
-    adminId: currentSessionUser.id,
-    adminName: currentSessionUser.name,
+    adminId: authUser.id,
+    adminName: authUser.name,
     action: 'UPDATE_SETTINGS',
     targetType: 'PlatformSettings',
     targetId: 'settings',
-    details: `Atualizou configurações da plataforma: Comissão Criador=${settings.creatorCommissionRate}%`,
+    details: `Atualizou configurações: Comissão Criador=${settings.creatorCommissionRate}%, Saque Mínimo=R$${settings.minWithdrawalAmount}`,
     createdAt: new Date().toISOString()
   });
   res.json({ success: true, settings });
@@ -1185,7 +1237,8 @@ app.get('/api/products/:slugOrId', (req, res) => {
 
 // Create product (Admin only)
 app.post('/api/products', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') {
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem cadastrar produtos.' });
   }
   const { name, brandId, categoryId, description, imageUrl, specs, referencePrice, currentBestPrice, idealPrice, targetAudience, recommendationVerdict, verdictReason, pros, cons } = req.body;
@@ -1213,7 +1266,7 @@ app.post('/api/products', (req, res) => {
     referencePrice: Number(referencePrice) || 0,
     currentBestPrice: Number(currentBestPrice) || Number(referencePrice) || 0,
     idealPrice: Number(idealPrice) || Number(currentBestPrice) || 0,
-    targetAudience: targetAudience || 'Entusiastas e gamers.',
+    targetAudience: targetAudience || 'Entusiastas e consumidores exigentes.',
     recommendationVerdict: recommendationVerdict || 'RECOMENDADO',
     verdictReason: verdictReason || 'Análise de custo-benefício baseada em especificações.',
     ratingOverall: 8.5,
@@ -1225,8 +1278,8 @@ app.post('/api/products', (req, res) => {
     durabilityScore: 8.5,
     reviewCount: 0,
     ratingCount: 0,
-    pros: pros || ['Bom desempenho', 'Construção sólida'],
-    cons: cons || ['Preço pode variar'],
+    pros: pros || ['Excelente desempenho', 'Construção sólida'],
+    cons: cons || ['Preço pode oscilar'],
     status: 'active',
     viewsCount: 0,
     createdAt: new Date().toISOString()
@@ -1235,8 +1288,8 @@ app.post('/api/products', (req, res) => {
   products.push(newProduct);
   adminLogs.unshift({
     id: `log_${Date.now()}`,
-    adminId: currentSessionUser.id,
-    adminName: currentSessionUser.name,
+    adminId: authUser.id,
+    adminName: authUser.name,
     action: 'CREATE_PRODUCT',
     targetType: 'Product',
     targetId: newProduct.id,
@@ -1249,7 +1302,8 @@ app.post('/api/products', (req, res) => {
 
 // Update product (Admin only)
 app.put('/api/products/:id', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') {
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem atualizar produtos.' });
   }
   const index = products.findIndex(p => p.id === req.params.id);
@@ -1259,8 +1313,8 @@ app.put('/api/products/:id', (req, res) => {
   products[index] = { ...products[index], ...req.body };
   adminLogs.unshift({
     id: `log_${Date.now()}`,
-    adminId: currentSessionUser.id,
-    adminName: currentSessionUser.name,
+    adminId: authUser.id,
+    adminName: authUser.name,
     action: 'UPDATE_PRODUCT',
     targetType: 'Product',
     targetId: req.params.id,
@@ -1272,7 +1326,8 @@ app.put('/api/products/:id', (req, res) => {
 
 // Archive/Soft-delete product
 app.delete('/api/products/:id', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') {
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem excluir produtos.' });
   }
   const product = products.find(p => p.id === req.params.id);
@@ -1280,8 +1335,8 @@ app.delete('/api/products/:id', (req, res) => {
     product.status = 'archived';
     adminLogs.unshift({
       id: `log_${Date.now()}`,
-      adminId: currentSessionUser.id,
-      adminName: currentSessionUser.name,
+      adminId: authUser.id,
+      adminName: authUser.name,
       action: 'ARCHIVE_PRODUCT',
       targetType: 'Product',
       targetId: req.params.id,
@@ -1336,14 +1391,15 @@ app.post('/api/products/compare', (req, res) => {
 
 // --- REVIEWS & CREATORS ---
 app.get('/api/reviews', (req, res) => {
+  const authUser = getAuthUser(req);
   const { status, creatorId, productId } = req.query;
   let list = [...reviews];
   if (status) {
     list = list.filter(r => r.status === status);
   } else {
-    // default public only
-    if (currentSessionUser.role !== 'ADMIN') {
-      list = list.filter(r => r.status === 'published' || (r.creatorId === currentSessionUser.id));
+    // default public only unless creator viewing their own or admin
+    if (authUser.role !== 'ADMIN') {
+      list = list.filter(r => r.status === 'published' || (r.creatorId === authUser.id));
     }
   }
   if (creatorId) {
@@ -1375,7 +1431,8 @@ app.get('/api/reviews/:id', (req, res) => {
 
 // Create Review (Creator or Admin)
 app.post('/api/reviews', (req, res) => {
-  if (currentSessionUser.role !== 'CREATOR' && currentSessionUser.role !== 'ADMIN') {
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas criadores aprovados e administradores podem publicar reviews.' });
   }
   const { productId, title, summary, fullContent, rating, recommendation, pros, cons, youtubeUrl, images, isDraft } = req.body;
@@ -1391,22 +1448,22 @@ app.post('/api/reviews', (req, res) => {
   const youtubeVideoId = extractYouTubeId(youtubeUrl);
   const status: 'draft' | 'pending' | 'published' = isDraft 
     ? 'draft' 
-    : (currentSessionUser.role === 'ADMIN' || settings.autoApproveVerifiedCreators ? 'published' : 'pending');
+    : (authUser.role === 'ADMIN' || settings.autoApproveVerifiedCreators ? 'published' : 'pending');
 
   const newReview: Review = {
     id: `rev_${Date.now()}`,
     productId,
     productName: product.name,
     productSlug: product.slug,
-    creatorId: currentSessionUser.id,
-    creatorName: currentSessionUser.name,
-    creatorUsername: currentSessionUser.username,
-    creatorAvatar: currentSessionUser.avatarUrl,
-    creatorLevel: currentSessionUser.creatorLevel || 'Novato',
-    title,
-    summary,
+    creatorId: authUser.id,
+    creatorName: authUser.name,
+    creatorUsername: authUser.username,
+    creatorAvatar: authUser.avatarUrl,
+    creatorLevel: authUser.creatorLevel || 'Novato',
+    title: title.trim(),
+    summary: summary.trim(),
     fullContent: fullContent || summary,
-    rating: Number(rating) || 8.0,
+    rating: Math.min(10, Math.max(0, Number(rating) || 8.0)),
     recommendation: recommendation || 'RECOMENDADO',
     pros: Array.isArray(pros) ? pros : [],
     cons: Array.isArray(cons) ? cons : [],
@@ -1438,10 +1495,11 @@ app.post('/api/reviews', (req, res) => {
 
 // Like / Unlike review
 app.post('/api/reviews/:id/like', (req, res) => {
+  const authUser = getAuthUser(req);
   const review = reviews.find(r => r.id === req.params.id);
   if (!review) return res.status(404).json({ error: 'Review não encontrado.' });
 
-  const userId = currentSessionUser.id;
+  const userId = authUser.id;
   const hasLiked = review.likedBy.includes(userId);
 
   if (hasLiked) {
@@ -1455,8 +1513,8 @@ app.post('/api/reviews/:id/like', (req, res) => {
       notifications.unshift({
         id: `notif_${Date.now()}`,
         userId: review.creatorId,
-        title: 'Nova curtida!',
-        message: `${currentSessionUser.name} curtiu seu review "${review.title.slice(0, 30)}..."`,
+        title: 'Nova curtida! 👍',
+        message: `${authUser.name} curtiu seu review "${review.title.slice(0, 35)}..."`,
         link: `/review/${review.productSlug}`,
         read: false,
         type: 'like',
@@ -1470,6 +1528,7 @@ app.post('/api/reviews/:id/like', (req, res) => {
 
 // Comments on review
 app.post('/api/reviews/:id/comments', (req, res) => {
+  const authUser = getAuthUser(req);
   const { text, parentCommentId } = req.body;
   if (!text || text.trim().length === 0) {
     return res.status(400).json({ error: 'Texto do comentário não pode estar vazio.' });
@@ -1480,10 +1539,10 @@ app.post('/api/reviews/:id/comments', (req, res) => {
   const newComment: Comment = {
     id: `com_${Date.now()}`,
     reviewId: review.id,
-    userId: currentSessionUser.id,
-    userName: currentSessionUser.name,
-    userAvatar: currentSessionUser.avatarUrl,
-    userRole: currentSessionUser.role,
+    userId: authUser.id,
+    userName: authUser.name,
+    userAvatar: authUser.avatarUrl,
+    userRole: authUser.role,
     text: text.trim(),
     likes: 0,
     likedBy: [],
@@ -1499,7 +1558,8 @@ app.post('/api/reviews/:id/comments', (req, res) => {
 
 // Review Moderation (Admin)
 app.post('/api/admin/reviews/:id/moderate', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') {
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem moderar reviews.' });
   }
   const { status, rejectionReason, moderationNotes } = req.body;
@@ -1527,8 +1587,8 @@ app.post('/api/admin/reviews/:id/moderate', (req, res) => {
 
   adminLogs.unshift({
     id: `log_${Date.now()}`,
-    adminId: currentSessionUser.id,
-    adminName: currentSessionUser.name,
+    adminId: authUser.id,
+    adminName: authUser.name,
     action: `MODERATE_REVIEW_${status.toUpperCase()}`,
     targetType: 'Review',
     targetId: review.id,
@@ -1541,13 +1601,14 @@ app.post('/api/admin/reviews/:id/moderate', (req, res) => {
 
 // --- USER RATINGS & EVALUATIONS ---
 app.post('/api/ratings', (req, res) => {
+  const authUser = getAuthUser(req);
   const { productId, rating, title, comment, pros, cons, wouldRecommend, isVerifiedPurchase } = req.body;
   if (!productId || rating === undefined) {
     return res.status(400).json({ error: 'Produto e nota são obrigatórios.' });
   }
 
   // Prevent duplicate spam from the same user on the same product
-  const existing = userRatings.find(r => r.productId === productId && r.userId === currentSessionUser.id);
+  const existing = userRatings.find(r => r.productId === productId && r.userId === authUser.id);
   if (existing) {
     // update existing
     existing.rating = Number(rating);
@@ -1562,9 +1623,9 @@ app.post('/api/ratings', (req, res) => {
     const newRating: UserRating = {
       id: `rate_${Date.now()}`,
       productId,
-      userId: currentSessionUser.id,
-      userName: currentSessionUser.name,
-      userAvatar: currentSessionUser.avatarUrl,
+      userId: authUser.id,
+      userName: authUser.name,
+      userAvatar: authUser.avatarUrl,
       rating: Number(rating),
       title: title || '',
       comment: comment || '',
@@ -1595,10 +1656,11 @@ app.post('/api/ratings', (req, res) => {
 
 // Helpful vote on user rating
 app.post('/api/ratings/:id/helpful', (req, res) => {
+  const authUser = getAuthUser(req);
   const r = userRatings.find(item => item.id === req.params.id);
   if (!r) return res.status(404).json({ error: 'Avaliação não encontrada.' });
 
-  const userId = currentSessionUser.id;
+  const userId = authUser.id;
   if (!r.helpfulBy.includes(userId)) {
     r.helpfulBy.push(userId);
     r.helpfulCount += 1;
@@ -1736,11 +1798,12 @@ app.get('/api/creators/:usernameOrId', (req, res) => {
 });
 
 app.get('/api/creator/dashboard', (req, res) => {
-  if (currentSessionUser.role !== 'CREATOR' && currentSessionUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Acesso restrito a criadores.' });
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Acesso restrito a criadores de conteúdo.' });
   }
 
-  const creatorId = currentSessionUser.id;
+  const creatorId = authUser.id;
   const myReviews = reviews.filter(r => r.creatorId === creatorId);
   const myClicks = affiliateClicks.filter(c => c.creatorId === creatorId);
   const myConversions = conversions.filter(c => c.creatorId === creatorId);
@@ -1761,7 +1824,7 @@ app.get('/api/creator/dashboard', (req, res) => {
   ];
 
   res.json({
-    user: currentSessionUser,
+    user: authUser,
     metrics: {
       totalReviews: myReviews.length,
       publishedReviews: myReviews.filter(r => r.status === 'published').length,
@@ -1770,9 +1833,9 @@ app.get('/api/creator/dashboard', (req, res) => {
       totalLikes,
       totalClicks: myClicks.length,
       totalConversions: myConversions.length,
-      balance: currentSessionUser.balance,
-      pendingBalance: currentSessionUser.pendingBalance,
-      totalEarnings: currentSessionUser.totalEarnings || estimatedEarnings
+      balance: authUser.balance,
+      pendingBalance: authUser.pendingBalance,
+      totalEarnings: authUser.totalEarnings || estimatedEarnings
     },
     reviews: myReviews,
     recentConversions: myConversions.slice(0, 10),
@@ -1782,7 +1845,8 @@ app.get('/api/creator/dashboard', (req, res) => {
 
 // Request withdrawal simulation
 app.post('/api/creator/withdraw', (req, res) => {
-  if (currentSessionUser.role !== 'CREATOR' && currentSessionUser.role !== 'ADMIN') {
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas criadores podem solicitar saque.' });
   }
 
@@ -1793,29 +1857,30 @@ app.post('/api/creator/withdraw', (req, res) => {
     return res.status(400).json({ error: `Valor mínimo para saque é de R$ ${settings.minWithdrawalAmount.toFixed(2)}.` });
   }
 
-  if (numAmount > currentSessionUser.balance) {
+  if (numAmount > authUser.balance) {
     return res.status(400).json({ error: 'Saldo insuficiente para realizar este saque.' });
   }
 
-  currentSessionUser.balance -= numAmount;
+  authUser.balance -= numAmount;
 
   notifications.unshift({
     id: `notif_${Date.now()}`,
-    userId: currentSessionUser.id,
-    title: 'Solicitação de Saque Efetuada!',
-    message: `Seu saque de R$ ${numAmount.toFixed(2)} foi enviado para processamento PIX.`,
+    userId: authUser.id,
+    title: 'Solicitação de Saque Efetuada! 💸',
+    message: `Seu saque de R$ ${numAmount.toFixed(2)} foi enviado para processamento PIX com sucesso.`,
     link: '/painel-criador',
     read: false,
     type: 'system',
     createdAt: new Date().toISOString()
   });
 
-  res.json({ success: true, remainingBalance: currentSessionUser.balance });
+  res.json({ success: true, remainingBalance: authUser.balance });
 });
 
 // --- FAVORITES / WISHLIST ---
 app.get('/api/favorites', (req, res) => {
-  const userFavs = favorites.filter(f => f.userId === currentSessionUser.id);
+  const authUser = getAuthUser(req);
+  const userFavs = favorites.filter(f => f.userId === authUser.id);
   const populated = userFavs.map(f => ({
     ...f,
     product: products.find(p => p.id === f.productId)
@@ -1824,15 +1889,16 @@ app.get('/api/favorites', (req, res) => {
 });
 
 app.post('/api/favorites/toggle', (req, res) => {
+  const authUser = getAuthUser(req);
   const { productId, priceAlertThreshold } = req.body;
-  const index = favorites.findIndex(f => f.userId === currentSessionUser.id && f.productId === productId);
+  const index = favorites.findIndex(f => f.userId === authUser.id && f.productId === productId);
   if (index >= 0) {
     favorites.splice(index, 1);
     res.json({ success: true, isFavorite: false });
   } else {
     favorites.push({
       id: `fav_${Date.now()}`,
-      userId: currentSessionUser.id,
+      userId: authUser.id,
       productId,
       priceAlertThreshold: Number(priceAlertThreshold) || undefined,
       addedAt: new Date().toISOString()
@@ -1843,23 +1909,27 @@ app.post('/api/favorites/toggle', (req, res) => {
 
 // --- NOTIFICATIONS ---
 app.get('/api/notifications', (req, res) => {
-  const userNotifs = notifications.filter(n => n.userId === currentSessionUser.id);
+  const authUser = getAuthUser(req);
+  const userNotifs = notifications.filter(n => n.userId === authUser.id);
   res.json(userNotifs);
 });
 
 app.post('/api/notifications/:id/read', (req, res) => {
-  const notif = notifications.find(n => n.id === req.params.id && n.userId === currentSessionUser.id);
+  const authUser = getAuthUser(req);
+  const notif = notifications.find(n => n.id === req.params.id && n.userId === authUser.id);
   if (notif) notif.read = true;
   res.json({ success: true });
 });
 
 app.post('/api/notifications/read-all', (req, res) => {
-  notifications.filter(n => n.userId === currentSessionUser.id).forEach(n => n.read = true);
+  const authUser = getAuthUser(req);
+  notifications.filter(n => n.userId === authUser.id).forEach(n => n.read = true);
   res.json({ success: true });
 });
 
 // --- REPORTS & MODERATION ---
 app.post('/api/reports', (req, res) => {
+  const authUser = getAuthUser(req);
   const { targetType, targetId, reason, details } = req.body;
   const newReport: Report = {
     id: `rep_${Date.now()}`,
@@ -1867,8 +1937,8 @@ app.post('/api/reports', (req, res) => {
     targetId,
     reason: reason || 'Spam',
     details: details || '',
-    reportedByUserId: currentSessionUser.id,
-    reportedByUserName: currentSessionUser.name,
+    reportedByUserId: authUser.id,
+    reportedByUserName: authUser.name,
     status: 'pending',
     createdAt: new Date().toISOString()
   };
@@ -1877,20 +1947,22 @@ app.post('/api/reports', (req, res) => {
 });
 
 app.get('/api/admin/reports', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
   res.json(reports);
 });
 
 app.post('/api/admin/reports/:id/resolve', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
   const { status } = req.body;
   const report = reports.find(r => r.id === req.params.id);
   if (report) {
     report.status = status || 'resolved';
     adminLogs.unshift({
       id: `log_${Date.now()}`,
-      adminId: currentSessionUser.id,
-      adminName: currentSessionUser.name,
+      adminId: authUser.id,
+      adminName: authUser.name,
       action: 'RESOLVE_REPORT',
       targetType: report.targetType,
       targetId: report.targetId,
@@ -1903,12 +1975,14 @@ app.post('/api/admin/reports/:id/resolve', (req, res) => {
 
 // --- ADMIN AUDIT LOGS & STATS ---
 app.get('/api/admin/logs', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
   res.json(adminLogs);
 });
 
 app.get('/api/admin/stats', (req, res) => {
-  if (currentSessionUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
+  const authUser = getAuthUser(req);
+  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
 
   const totalViews = products.reduce((acc, curr) => acc + curr.viewsCount, 0);
   const totalRevenue = conversions.reduce((acc, curr) => acc + curr.platformCommission + curr.creatorCommission, 0);

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User, Product, Notification, Favorite, PlatformSettings } from '../types/index.js';
-import { apiService } from '../services/api.js';
+import { apiService, setStoredUserId } from '../services/api.js';
 
 interface AppContextType {
   currentUser: User | null;
@@ -23,7 +23,7 @@ interface AppContextType {
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
-  login: (email: string) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   register: (data: Partial<User>) => Promise<boolean>;
   settings: PlatformSettings | null;
@@ -78,7 +78,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         apiService.getSettings().catch(() => null)
       ]);
 
-      setCurrentUser(meRes.user);
+      if (meRes?.user) {
+        setCurrentUser(meRes.user);
+        setStoredUserId(meRes.user.id);
+      }
       setAllUsers(usersRes);
       setFavorites(favRes);
       setNotifications(notifRes);
@@ -101,7 +104,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         apiService.getFavorites().catch(() => []),
         apiService.getNotifications().catch(() => [])
       ]);
-      setCurrentUser(meRes.user);
+      if (meRes?.user) {
+        setCurrentUser(meRes.user);
+        setStoredUserId(meRes.user.id);
+      }
       setFavorites(favRes);
       setNotifications(notifRes);
     } catch (e) {
@@ -111,6 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const switchUser = async (userId: string) => {
     try {
+      setStoredUserId(userId);
       const res = await apiService.switchProfile(userId);
       setCurrentUser(res.user);
       await refreshUserData();
@@ -119,12 +126,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const login = async (email: string): Promise<boolean> => {
+  const login = async (email: string, password?: string): Promise<boolean> => {
     try {
-      const res = await apiService.login(email);
-      setCurrentUser(res.user);
-      await refreshUserData();
-      return true;
+      const res = await apiService.login(email, password);
+      if (res.user) {
+        setStoredUserId(res.user.id);
+        setCurrentUser(res.user);
+        await refreshUserData();
+        return true;
+      }
+      return false;
     } catch (e) {
       return false;
     }
@@ -133,6 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = async () => {
     try {
       await apiService.logout();
+      setStoredUserId(null);
       await loadInitialData();
       setCurrentPage('home');
     } catch (e) {
@@ -143,9 +155,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const register = async (data: Partial<User>): Promise<boolean> => {
     try {
       const res = await apiService.register(data);
-      setCurrentUser(res.user);
-      await refreshUserData();
-      return true;
+      if (res.user) {
+        setStoredUserId(res.user.id);
+        setCurrentUser(res.user);
+        await refreshUserData();
+        return true;
+      }
+      return false;
     } catch (e) {
       return false;
     }
