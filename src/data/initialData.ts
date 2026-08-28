@@ -1,20 +1,10 @@
-import express from 'express';
-import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import type { 
   User, Product, Category, Brand, Store, Offer, Review, UserRating, 
   Comment, Favorite, Notification, Conversion, AffiliateClick, Report, 
   AdminLog, AdBanner, PlatformSettings 
-} from './src/types/index.js';
+} from '../types/index.js';
 
-const app = express();
-const PORT = 3000;
-
-app.use(express.json());
-
-// --- IN-MEMORY DATABASE WITH ROBUST PERSISTENCE ---
-
-let settings: PlatformSettings = {
+export const initialSettings: PlatformSettings = {
   platformName: 'ReviewHub',
   platformLogoText: 'ReviewHub',
   creatorCommissionRate: 40,
@@ -24,7 +14,7 @@ let settings: PlatformSettings = {
   featuredNotice: 'Explore comparativos técnicos e reviews de criadores antes de decidir sua compra.'
 };
 
-let users: User[] = [
+export const initialUsers: User[] = [
   {
     id: 'user_admin',
     name: 'Carlos Admin',
@@ -60,41 +50,41 @@ let users: User[] = [
   {
     id: 'creator_lucas',
     name: 'Lucas Hardware',
-    email: 'lucas@hardwarebrasil.com',
+    email: 'lucas@hardwarereviews.com',
     username: 'lucashardware',
     role: 'CREATOR',
     avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
-    bio: 'Testes práticos de CPUs, placas-mãe e custo-benefício para orçamentos realistas.',
+    bio: 'Focado em comparativos de custo-benefício e testes de longevidade de componentes.',
     creatorLevel: 'Especialista',
-    reputationScore: 98,
-    badges: ['👑 Reviewer Especialista', '⚡ Benchmark Pro', '🏆 Top Criador'],
-    balance: 1450.00,
-    pendingBalance: 320.00,
-    totalEarnings: 6890.00,
+    reputationScore: 89,
+    badges: ['⚡ Especialista', '📊 Testador Rigoroso', '🎯 98% Precisão'],
+    balance: 520.00,
+    pendingBalance: 140.00,
+    totalEarnings: 2180.00,
     youtubeChannelUrl: 'https://youtube.com/@lucashardware',
-    createdAt: '2025-01-15T15:00:00Z'
+    createdAt: '2025-02-15T15:30:00Z'
   },
   {
     id: 'creator_camila',
     name: 'Camila Tech Review',
-    email: 'camila@camilareviews.com',
+    email: 'camila@techreview.com',
     username: 'camilatech',
     role: 'CREATOR',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    bio: 'Reviews de smartphones, periféricos ergonômicos e monitores para produtividade e jogos.',
+    bio: 'Reviews de periféricos, teclados mecânicos custom e monitores para produtividade e games.',
     creatorLevel: 'Prata',
-    reputationScore: 88,
-    badges: ['🥈 Reviewer Prata', '📱 Mobile Guru'],
-    balance: 390.00,
-    pendingBalance: 110.00,
-    totalEarnings: 1250.00,
+    reputationScore: 78,
+    badges: ['🎨 Design & Setup', '⌨️ Teclados Custom'],
+    balance: 310.00,
+    pendingBalance: 95.00,
+    totalEarnings: 980.00,
     youtubeChannelUrl: 'https://youtube.com/@camilatech',
     createdAt: '2025-03-01T09:00:00Z'
   },
   {
     id: 'user_gamer',
     name: 'Rodrigo Gamer',
-    email: 'rodrigo@gmail.com',
+    email: 'rodrigo@gamerbrasil.com',
     username: 'rodrigogamer',
     role: 'USER',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
@@ -108,7 +98,7 @@ let users: User[] = [
   }
 ];
 
-let categories: Category[] = [
+export const initialCategories: Category[] = [
   { id: 'cat_gpu', name: 'Placas de Vídeo', slug: 'placas-de-video', iconName: 'Cpu', description: 'GPUs para jogos, renderização e inteligência artificial', productCount: 2 },
   { id: 'cat_cpu', name: 'Processadores', slug: 'processadores', iconName: 'Zap', description: 'CPUs AMD e Intel para alto desempenho em jogos e produtividade', productCount: 2 },
   { id: 'cat_storage', name: 'Armazenamento & SSD', slug: 'armazenamento-ssd', iconName: 'HardDrive', description: 'SSDs NVMe, SATA e unidades de alta velocidade', productCount: 1 },
@@ -117,7 +107,7 @@ let categories: Category[] = [
   { id: 'cat_smartphones', name: 'Smartphones', slug: 'smartphones', iconName: 'Smartphone', description: 'Celulares topo de linha e intermediários premium', productCount: 2 }
 ];
 
-let brands: Brand[] = [
+export const initialBrands: Brand[] = [
   { id: 'brand_nvidia', name: 'NVIDIA', slug: 'nvidia', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/21/Nvidia_logo.svg', description: 'Líder global em processamento gráfico e inteligência artificial', websiteUrl: 'https://nvidia.com', status: 'active' },
   { id: 'brand_amd', name: 'AMD', slug: 'amd', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/7c/AMD_Logo.svg', description: 'Pioneira em CPUs Ryzen e GPUs Radeon de alto custo-benefício', websiteUrl: 'https://amd.com', status: 'active' },
   { id: 'brand_kingston', name: 'Kingston', slug: 'kingston', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Kingston_Technology_logo.svg', description: 'Líder mundial em memórias RAM e SSDs de alto rendimento', websiteUrl: 'https://kingston.com', status: 'active' },
@@ -128,7 +118,7 @@ let brands: Brand[] = [
   { id: 'brand_hyperx', name: 'HyperX', slug: 'hyperx', logoUrl: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=100&auto=format&fit=crop&q=80', description: 'Áudio espacial e equipamentos gamer profissionais', websiteUrl: 'https://hyperx.com', status: 'active' }
 ];
 
-let stores: Store[] = [
+export const initialStores: Store[] = [
   { id: 'store_kabum', name: 'KaBuM!', slug: 'kabum', logoUrl: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', websiteUrl: 'https://kabum.com.br', defaultCommissionPercentage: 3.5, status: 'active' },
   { id: 'store_amazon', name: 'Amazon Brasil', slug: 'amazon', logoUrl: 'https://images.unsplash.com/photo-1523474253246-72fb9c27030d?w=100&auto=format&fit=crop&q=80', websiteUrl: 'https://amazon.com.br', defaultCommissionPercentage: 4.0, status: 'active' },
   { id: 'store_pichau', name: 'Pichau Informática', slug: 'pichau', logoUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=100&auto=format&fit=crop&q=80', websiteUrl: 'https://pichau.com.br', defaultCommissionPercentage: 3.0, status: 'active' },
@@ -136,7 +126,7 @@ let stores: Store[] = [
   { id: 'store_ml', name: 'Mercado Livre', slug: 'mercado-livre', logoUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=100&auto=format&fit=crop&q=80', websiteUrl: 'https://mercadolivre.com.br', defaultCommissionPercentage: 4.5, status: 'active' }
 ];
 
-let products: Product[] = [
+export const initialProducts: Product[] = [
   {
     id: 'prod_rtx4060',
     name: 'NVIDIA GeForce RTX 4060 8GB',
@@ -658,45 +648,45 @@ let products: Product[] = [
   }
 ];
 
-let offers: Offer[] = [
-  // RTX 4060 Offers
+export const initialOffers: Offer[] = [
+  // RTX 4060
   { id: 'off_4060_kabum', productId: 'prod_rtx4060', storeId: 'store_kabum', storeName: 'KaBuM!', storeLogo: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', price: 1849.00, originalPrice: 2199.00, discountPercentage: 16, affiliateUrl: 'https://kabum.com.br/produto/rtx4060?af=reviewhub', inStock: true, lastUpdated: 'Há 20 minutos', isSponsored: true, couponCode: 'TECH100' },
   { id: 'off_4060_amazon', productId: 'prod_rtx4060', storeId: 'store_amazon', storeName: 'Amazon Brasil', storeLogo: 'https://images.unsplash.com/photo-1523474253246-72fb9c27030d?w=100&auto=format&fit=crop&q=80', price: 1899.90, originalPrice: 2199.00, discountPercentage: 14, affiliateUrl: 'https://amazon.com.br/dp/rtx4060?tag=reviewhub-20', inStock: true, lastUpdated: 'Há 1 hora' },
   { id: 'off_4060_terabyte', productId: 'prod_rtx4060', storeId: 'store_terabyte', storeName: 'TerabyteShop', storeLogo: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=100&auto=format&fit=crop&q=80', price: 1879.00, originalPrice: 2149.00, discountPercentage: 12, affiliateUrl: 'https://terabyteshop.com.br/rtx4060?p=reviewhub', inStock: true, lastUpdated: 'Há 3 horas' },
   { id: 'off_4060_pichau', productId: 'prod_rtx4060', storeId: 'store_pichau', storeName: 'Pichau', storeLogo: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=100&auto=format&fit=crop&q=80', price: 1869.00, originalPrice: 2189.00, discountPercentage: 15, affiliateUrl: 'https://pichau.com.br/rtx4060?af=rhub', inStock: true, lastUpdated: 'Há 4 horas' },
 
-  // RX 7600 Offers
+  // RX 7600
   { id: 'off_7600_kabum', productId: 'prod_rx7600', storeId: 'store_kabum', storeName: 'KaBuM!', storeLogo: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', price: 1599.00, originalPrice: 1999.00, discountPercentage: 20, affiliateUrl: 'https://kabum.com.br/produto/rx7600?af=reviewhub', inStock: true, lastUpdated: 'Há 30 minutos', couponCode: 'AMDPROMO' },
   { id: 'off_7600_terabyte', productId: 'prod_rx7600', storeId: 'store_terabyte', storeName: 'TerabyteShop', storeLogo: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=100&auto=format&fit=crop&q=80', price: 1629.00, originalPrice: 1949.00, discountPercentage: 16, affiliateUrl: 'https://terabyteshop.com.br/rx7600?p=reviewhub', inStock: true, lastUpdated: 'Há 2 horas' },
 
-  // Ryzen 7 5700X Offers
+  // Ryzen 7 5700X
   { id: 'off_5700x_amazon', productId: 'prod_ryzen5700x', storeId: 'store_amazon', storeName: 'Amazon Brasil', storeLogo: 'https://images.unsplash.com/photo-1523474253246-72fb9c27030d?w=100&auto=format&fit=crop&q=80', price: 1149.00, originalPrice: 1399.00, discountPercentage: 18, affiliateUrl: 'https://amazon.com.br/dp/ryzen5700x?tag=reviewhub-20', inStock: true, lastUpdated: 'Há 15 minutos' },
   { id: 'off_5700x_kabum', productId: 'prod_ryzen5700x', storeId: 'store_kabum', storeName: 'KaBuM!', storeLogo: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', price: 1169.00, originalPrice: 1399.00, discountPercentage: 16, affiliateUrl: 'https://kabum.com.br/produto/ryzen5700x?af=reviewhub', inStock: true, lastUpdated: 'Há 1 hora' },
 
-  // Ryzen 5 5600 Offers
+  // Ryzen 5 5600
   { id: 'off_5600_kabum', productId: 'prod_ryzen5600', storeId: 'store_kabum', storeName: 'KaBuM!', storeLogo: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', price: 779.00, originalPrice: 949.00, discountPercentage: 18, affiliateUrl: 'https://kabum.com.br/produto/ryzen5600?af=reviewhub', inStock: true, lastUpdated: 'Há 10 minutos' },
   { id: 'off_5600_terabyte', productId: 'prod_ryzen5600', storeId: 'store_terabyte', storeName: 'TerabyteShop', storeLogo: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=100&auto=format&fit=crop&q=80', price: 789.00, originalPrice: 949.00, discountPercentage: 17, affiliateUrl: 'https://terabyteshop.com.br/ryzen5600?p=reviewhub', inStock: true, lastUpdated: 'Há 50 minutos' },
 
-  // KC3000 Offers
+  // KC3000
   { id: 'off_kc3000_amazon', productId: 'prod_kc3000', storeId: 'store_amazon', storeName: 'Amazon Brasil', storeLogo: 'https://images.unsplash.com/photo-1523474253246-72fb9c27030d?w=100&auto=format&fit=crop&q=80', price: 589.00, originalPrice: 749.00, discountPercentage: 21, affiliateUrl: 'https://amazon.com.br/dp/kc3000?tag=reviewhub-20', inStock: true, lastUpdated: 'Há 45 minutos' },
 
-  // LG UltraGear Offers
+  // LG UltraGear
   { id: 'off_lg_kabum', productId: 'prod_ultragear24', storeId: 'store_kabum', storeName: 'KaBuM!', storeLogo: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', price: 879.00, originalPrice: 1099.00, discountPercentage: 20, affiliateUrl: 'https://kabum.com.br/produto/lg-ultragear?af=reviewhub', inStock: true, lastUpdated: 'Há 1 hora' },
 
-  // Galaxy S25 Offers
+  // Galaxy S25
   { id: 'off_s25_ml', productId: 'prod_galaxys25', storeId: 'store_ml', storeName: 'Mercado Livre', storeLogo: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=100&auto=format&fit=crop&q=80', price: 4699.00, originalPrice: 5999.00, discountPercentage: 22, affiliateUrl: 'https://mercadolivre.com.br/samsung-s25?af=rhub', inStock: true, lastUpdated: 'Há 2 horas' },
 
-  // iPhone 15 Offers
+  // iPhone 15
   { id: 'off_ip15_amazon', productId: 'prod_iphone15', storeId: 'store_amazon', storeName: 'Amazon Brasil', storeLogo: 'https://images.unsplash.com/photo-1523474253246-72fb9c27030d?w=100&auto=format&fit=crop&q=80', price: 4299.00, originalPrice: 5299.00, discountPercentage: 19, affiliateUrl: 'https://amazon.com.br/dp/iphone15?tag=reviewhub-20', inStock: true, lastUpdated: 'Há 35 minutos' },
 
-  // Akko 3084B Offers
+  // Akko 3084B
   { id: 'off_akko_amazon', productId: 'prod_akko3084', storeId: 'store_amazon', storeName: 'Amazon Brasil', storeLogo: 'https://images.unsplash.com/photo-1523474253246-72fb9c27030d?w=100&auto=format&fit=crop&q=80', price: 419.00, originalPrice: 549.00, discountPercentage: 24, affiliateUrl: 'https://amazon.com.br/dp/akko3084b?tag=reviewhub-20', inStock: true, lastUpdated: 'Há 3 horas' },
 
-  // HyperX Cloud II Offers
+  // HyperX Cloud II
   { id: 'off_hyperx_kabum', productId: 'prod_cloud2wireless', storeId: 'store_kabum', storeName: 'KaBuM!', storeLogo: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=100&auto=format&fit=crop&q=80', price: 679.00, originalPrice: 899.00, discountPercentage: 24, affiliateUrl: 'https://kabum.com.br/produto/hyperx-cloud-2-wireless?af=reviewhub', inStock: true, lastUpdated: 'Há 1 hora' }
 ];
 
-let reviews: Review[] = [
+export const initialReviews: Review[] = [
   {
     id: 'rev_4060_joao',
     productId: 'prod_rtx4060',
@@ -838,7 +828,7 @@ let reviews: Review[] = [
   }
 ];
 
-let userRatings: UserRating[] = [
+export const initialUserRatings: UserRating[] = [
   {
     id: 'rate_1',
     productId: 'prod_rtx4060',
@@ -877,7 +867,7 @@ let userRatings: UserRating[] = [
   }
 ];
 
-let comments: Comment[] = [
+export const initialComments: Comment[] = [
   {
     id: 'com_1',
     reviewId: 'rev_4060_joao',
@@ -905,32 +895,30 @@ let comments: Comment[] = [
   }
 ];
 
-let favorites: Favorite[] = [
+export const initialFavorites: Favorite[] = [
   { id: 'fav_1', userId: 'user_gamer', productId: 'prod_rtx4060', addedAt: '2025-02-01T10:00:00Z', priceAlertThreshold: 1800 }
 ];
 
-let notifications: Notification[] = [
+export const initialNotifications: Notification[] = [
   { id: 'notif_1', userId: 'creator_joao', title: 'Comissão Registrada!', message: 'Você recebeu R$ 25,88 de comissão pela compra de uma RTX 4060 via KaBuM!', link: '/painel-criador', read: false, type: 'commission', createdAt: '2025-02-15T10:00:00Z' },
   { id: 'notif_2', userId: 'creator_joao', title: 'Review Aprovado', message: 'Seu review "RTX 4060 em 2025" foi aprovado pela moderação e está público.', link: '/review/rtx-4060', read: true, type: 'review_approved', createdAt: '2025-01-25T14:05:00Z' }
 ];
 
-let affiliateClicks: AffiliateClick[] = [
+export const initialAffiliateClicks: AffiliateClick[] = [
   { id: 'click_1', productId: 'prod_rtx4060', productName: 'NVIDIA GeForce RTX 4060 8GB', offerId: 'off_4060_kabum', creatorId: 'creator_joao', creatorName: 'João Tech', storeName: 'KaBuM!', createdAt: '2025-02-15T09:30:00Z' },
   { id: 'click_2', productId: 'prod_rx7600', productName: 'AMD Radeon RX 7600 8GB', offerId: 'off_7600_kabum', creatorId: 'creator_lucas', creatorName: 'Lucas Hardware', storeName: 'KaBuM!', createdAt: '2025-02-15T11:20:00Z' }
 ];
 
-let conversions: Conversion[] = [
+export const initialConversions: Conversion[] = [
   { id: 'conv_1', clickId: 'click_1', productId: 'prod_rtx4060', productName: 'NVIDIA GeForce RTX 4060 8GB', creatorId: 'creator_joao', creatorName: 'João Tech', storeName: 'KaBuM!', saleAmount: 1849.00, platformCommission: 38.83, creatorCommission: 25.88, status: 'confirmed', createdAt: '2025-02-15T10:00:00Z' }
 ];
 
-let reports: Report[] = [];
-
-let adminLogs: AdminLog[] = [
+export const initialAdminLogs: AdminLog[] = [
   { id: 'log_1', adminId: 'user_admin', adminName: 'Carlos Admin', action: 'CREATE_PRODUCT', targetType: 'Product', targetId: 'prod_rtx4060', details: 'Cadastrou o produto NVIDIA GeForce RTX 4060', createdAt: '2025-01-20T10:00:00Z' },
   { id: 'log_2', adminId: 'user_admin', adminName: 'Carlos Admin', action: 'APPROVE_REVIEW', targetType: 'Review', targetId: 'rev_4060_joao', details: 'Aprovou review publicado pelo criador João Tech', createdAt: '2025-01-25T14:05:00Z' }
 ];
 
-let adBanners: AdBanner[] = [
+export const initialAdBanners: AdBanner[] = [
   {
     id: 'ad_1',
     title: 'KaBuM! Mega Ofertas Hardware',
@@ -943,1106 +931,3 @@ let adBanners: AdBanner[] = [
     impressionCount: 3890
   }
 ];
-
-// --- AUTH HELPER / SESSION RESOLVER ---
-let currentSessionUser: User = users[1]; // Fallback default (João Tech - Creator)
-
-// Helper function to extract authenticated user from request header or session
-function getAuthUser(req: express.Request): User {
-  const headerUserId = req.headers['x-user-id'] as string | undefined;
-  if (headerUserId) {
-    const user = users.find(u => u.id === headerUserId);
-    if (user) return user;
-  }
-  return currentSessionUser;
-}
-
-// Robust helper function to extract youtube video ID safely across all standard formats
-function extractYouTubeId(url?: string): string | undefined {
-  if (!url || typeof url !== 'string') return undefined;
-  const cleanUrl = url.trim();
-  // Match youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, youtube.com/shorts/ID, etc.
-  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-  const match = cleanUrl.match(regExp);
-  return match && match[1] ? match[1] : undefined;
-}
-
-// ==========================================
-// API ROUTES
-// ==========================================
-
-// --- AUTH & USER ENDPOINTS ---
-app.get('/api/auth/me', (req, res) => {
-  const user = getAuthUser(req);
-  res.json({ user });
-});
-
-app.post('/api/auth/login', (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Por favor, informe seu email.' });
-  }
-  const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-  if (user) {
-    currentSessionUser = user;
-    res.json({ success: true, user });
-  } else {
-    res.status(401).json({ error: 'Email não encontrado. Cadastre-se gratuitamente ou escolha um perfil de teste.' });
-  }
-});
-
-app.post('/api/auth/forgot-password', (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Informe seu endereço de email.' });
-  }
-  const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-  if (user) {
-    res.json({ success: true, message: `Um link seguro de recuperação de senha foi enviado para ${email}. Verifique sua caixa de entrada.` });
-  } else {
-    // Return friendly generic confirmation for privacy
-    res.json({ success: true, message: `Se o email ${email} estiver cadastrado, um link de recuperação foi enviado.` });
-  }
-});
-
-app.post('/api/auth/switch-profile', (req, res) => {
-  const { userId } = req.body;
-  const user = users.find(u => u.id === userId);
-  if (user) {
-    currentSessionUser = user;
-    res.json({ success: true, user });
-  } else {
-    res.status(404).json({ error: 'Perfil de demonstração não encontrado.' });
-  }
-});
-
-app.post('/api/auth/register', (req, res) => {
-  const { name, email, role, username, bio, youtubeChannelUrl } = req.body;
-  if (!name || !name.trim() || !email || !email.trim()) {
-    return res.status(400).json({ error: 'Nome e email são obrigatórios.' });
-  }
-
-  // Check email collision
-  const existing = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-  if (existing) {
-    return res.status(400).json({ error: 'Este endereço de email já está cadastrado. Faça login ou use outro email.' });
-  }
-
-  const cleanUsername = username 
-    ? username.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() 
-    : name.toLowerCase().replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '');
-
-  const newUser: User = {
-    id: `user_${Date.now()}`,
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
-    username: cleanUsername || `user_${Date.now().toString().slice(-4)}`,
-    role: (role === 'CREATOR' || role === 'ADMIN') ? role : 'USER',
-    avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername || Date.now()}`,
-    bio: bio || 'Entusiasta de tecnologia no ReviewHub.',
-    creatorLevel: role === 'CREATOR' ? 'Novato' : undefined,
-    reputationScore: 10,
-    badges: role === 'CREATOR' ? ['🌱 Novo Criador'] : ['🌱 Membro da Comunidade'],
-    balance: 0,
-    pendingBalance: 0,
-    totalEarnings: 0,
-    youtubeChannelUrl: youtubeChannelUrl ? youtubeChannelUrl.trim() : undefined,
-    createdAt: new Date().toISOString()
-  };
-
-  users.push(newUser);
-  currentSessionUser = newUser;
-  res.json({ success: true, user: newUser });
-});
-
-app.put('/api/auth/profile', (req, res) => {
-  const user = getAuthUser(req);
-  const { name, bio, youtubeChannelUrl, avatarUrl } = req.body;
-  
-  if (name) user.name = name.trim();
-  if (bio !== undefined) user.bio = bio;
-  if (youtubeChannelUrl !== undefined) user.youtubeChannelUrl = youtubeChannelUrl;
-  if (avatarUrl) user.avatarUrl = avatarUrl;
-
-  res.json({ success: true, user });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  currentSessionUser = users[4] || users[0];
-  res.json({ success: true });
-});
-
-app.get('/api/users', (req, res) => {
-  res.json(users);
-});
-
-// --- PLATFORM SETTINGS & METRICS ---
-app.get('/api/settings', (req, res) => {
-  res.json(settings);
-});
-
-app.put('/api/settings', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem alterar as configurações da plataforma.' });
-  }
-  settings = { ...settings, ...req.body };
-  adminLogs.unshift({
-    id: `log_${Date.now()}`,
-    adminId: authUser.id,
-    adminName: authUser.name,
-    action: 'UPDATE_SETTINGS',
-    targetType: 'PlatformSettings',
-    targetId: 'settings',
-    details: `Atualizou configurações: Comissão Criador=${settings.creatorCommissionRate}%, Saque Mínimo=R$${settings.minWithdrawalAmount}`,
-    createdAt: new Date().toISOString()
-  });
-  res.json({ success: true, settings });
-});
-
-// --- CATEGORIES & BRANDS ---
-app.get('/api/categories', (req, res) => {
-  // dynamically calculate counts
-  const result = categories.map(cat => ({
-    ...cat,
-    productCount: products.filter(p => p.categoryId === cat.id && p.status === 'active').length
-  }));
-  res.json(result);
-});
-
-app.get('/api/brands', (req, res) => {
-  res.json(brands.filter(b => b.status === 'active'));
-});
-
-app.get('/api/stores', (req, res) => {
-  res.json(stores.filter(s => s.status === 'active'));
-});
-
-// --- PRODUCTS ---
-app.get('/api/products', (req, res) => {
-  const { category, brand, search, sort, verdict, minPrice, maxPrice, minRating } = req.query;
-  let list = [...products];
-
-  // Filters
-  if (category) {
-    list = list.filter(p => p.categoryId === category || p.categoryName.toLowerCase() === (category as string).toLowerCase());
-  }
-  if (brand) {
-    list = list.filter(p => p.brandId === brand || p.brandName.toLowerCase() === (brand as string).toLowerCase());
-  }
-  if (verdict) {
-    list = list.filter(p => p.recommendationVerdict === verdict);
-  }
-  if (minPrice) {
-    list = list.filter(p => p.currentBestPrice >= Number(minPrice));
-  }
-  if (maxPrice) {
-    list = list.filter(p => p.currentBestPrice <= Number(maxPrice));
-  }
-  if (minRating) {
-    list = list.filter(p => p.ratingOverall >= Number(minRating));
-  }
-  if (search) {
-    const q = (search as string).toLowerCase().trim();
-    list = list.filter(p => 
-      p.name.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q) ||
-      p.brandName.toLowerCase().includes(q) ||
-      p.categoryName.toLowerCase().includes(q) ||
-      p.tags.some(t => t.toLowerCase().includes(q))
-    );
-  }
-
-  // Sort
-  if (sort === 'cost_benefit') {
-    list.sort((a, b) => b.costBenefitScore - a.costBenefitScore);
-  } else if (sort === 'best_rating') {
-    list.sort((a, b) => b.ratingOverall - a.ratingOverall);
-  } else if (sort === 'price_asc') {
-    list.sort((a, b) => a.currentBestPrice - b.currentBestPrice);
-  } else if (sort === 'price_desc') {
-    list.sort((a, b) => b.currentBestPrice - a.currentBestPrice);
-  } else if (sort === 'reviews') {
-    list.sort((a, b) => b.reviewCount - a.reviewCount);
-  } else if (sort === 'popular') {
-    list.sort((a, b) => b.viewsCount - a.viewsCount);
-  }
-
-  res.json(list);
-});
-
-// Search suggestions for instant search bar
-app.get('/api/products/search/suggest', (req, res) => {
-  const query = (req.query.q as string || '').toLowerCase().trim();
-  if (!query) {
-    return res.json({ products: [], brands: [], categories: [] });
-  }
-
-  const matchingProducts = products
-    .filter(p => p.name.toLowerCase().includes(query) || p.tags.some(t => t.toLowerCase().includes(query)))
-    .slice(0, 6)
-    .map(p => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      imageUrl: p.imageUrl,
-      price: p.currentBestPrice,
-      rating: p.ratingOverall,
-      verdict: p.recommendationVerdict,
-      categoryName: p.categoryName
-    }));
-
-  const matchingBrands = brands
-    .filter(b => b.name.toLowerCase().includes(query))
-    .slice(0, 3)
-    .map(b => ({ id: b.id, name: b.name, slug: b.slug }));
-
-  const matchingCategories = categories
-    .filter(c => c.name.toLowerCase().includes(query))
-    .slice(0, 3)
-    .map(c => ({ id: c.id, name: c.name, slug: c.slug }));
-
-  res.json({
-    products: matchingProducts,
-    brands: matchingBrands,
-    categories: matchingCategories
-  });
-});
-
-app.get('/api/products/:slugOrId', (req, res) => {
-  const { slugOrId } = req.params;
-  const product = products.find(p => p.slug === slugOrId || p.id === slugOrId);
-  if (!product) {
-    return res.status(404).json({ error: 'Produto não encontrado.' });
-  }
-  // increment view count
-  product.viewsCount += 1;
-
-  // Get offers for this product
-  const productOffers = offers.filter(o => o.productId === product.id);
-
-  // Get reviews for this product
-  const productReviews = reviews.filter(r => r.productId === product.id && r.status === 'published');
-
-  // Get user ratings
-  const ratings = userRatings.filter(r => r.productId === product.id);
-
-  res.json({
-    product,
-    offers: productOffers,
-    reviews: productReviews,
-    ratings
-  });
-});
-
-// Create product (Admin only)
-app.post('/api/products', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Apenas administradores podem cadastrar produtos.' });
-  }
-  const { name, brandId, categoryId, description, imageUrl, specs, referencePrice, currentBestPrice, idealPrice, targetAudience, recommendationVerdict, verdictReason, pros, cons } = req.body;
-  if (!name || !brandId || !categoryId) {
-    return res.status(400).json({ error: 'Nome, marca e categoria são obrigatórios.' });
-  }
-
-  const brand = brands.find(b => b.id === brandId);
-  const category = categories.find(c => c.id === categoryId);
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-  const newProduct: Product = {
-    id: `prod_${Date.now()}`,
-    name,
-    slug,
-    brandId,
-    brandName: brand?.name || 'Marca',
-    categoryId,
-    categoryName: category?.name || 'Categoria',
-    description: description || '',
-    imageUrl: imageUrl || 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=800&auto=format&fit=crop&q=80',
-    galleryImages: [imageUrl || 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=800&auto=format&fit=crop&q=80'],
-    specs: specs || {},
-    tags: [brand?.name || '', category?.name || ''].filter(Boolean),
-    referencePrice: Number(referencePrice) || 0,
-    currentBestPrice: Number(currentBestPrice) || Number(referencePrice) || 0,
-    idealPrice: Number(idealPrice) || Number(currentBestPrice) || 0,
-    targetAudience: targetAudience || 'Entusiastas e consumidores exigentes.',
-    recommendationVerdict: recommendationVerdict || 'RECOMENDADO',
-    verdictReason: verdictReason || 'Análise de custo-benefício baseada em especificações.',
-    ratingOverall: 8.5,
-    communityRating: 8.5,
-    creatorRating: 8.5,
-    performanceScore: 8.5,
-    qualityScore: 8.5,
-    costBenefitScore: 8.5,
-    durabilityScore: 8.5,
-    reviewCount: 0,
-    ratingCount: 0,
-    pros: pros || ['Excelente desempenho', 'Construção sólida'],
-    cons: cons || ['Preço pode oscilar'],
-    status: 'active',
-    viewsCount: 0,
-    createdAt: new Date().toISOString()
-  };
-
-  products.push(newProduct);
-  adminLogs.unshift({
-    id: `log_${Date.now()}`,
-    adminId: authUser.id,
-    adminName: authUser.name,
-    action: 'CREATE_PRODUCT',
-    targetType: 'Product',
-    targetId: newProduct.id,
-    details: `Cadastrou o produto ${newProduct.name}`,
-    createdAt: new Date().toISOString()
-  });
-
-  res.json({ success: true, product: newProduct });
-});
-
-// Update product (Admin only)
-app.put('/api/products/:id', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Apenas administradores podem atualizar produtos.' });
-  }
-  const index = products.findIndex(p => p.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Produto não encontrado.' });
-  }
-  products[index] = { ...products[index], ...req.body };
-  adminLogs.unshift({
-    id: `log_${Date.now()}`,
-    adminId: authUser.id,
-    adminName: authUser.name,
-    action: 'UPDATE_PRODUCT',
-    targetType: 'Product',
-    targetId: req.params.id,
-    details: `Atualizou dados do produto ${products[index].name}`,
-    createdAt: new Date().toISOString()
-  });
-  res.json({ success: true, product: products[index] });
-});
-
-// Archive/Soft-delete product
-app.delete('/api/products/:id', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Apenas administradores podem excluir produtos.' });
-  }
-  const product = products.find(p => p.id === req.params.id);
-  if (product) {
-    product.status = 'archived';
-    adminLogs.unshift({
-      id: `log_${Date.now()}`,
-      adminId: authUser.id,
-      adminName: authUser.name,
-      action: 'ARCHIVE_PRODUCT',
-      targetType: 'Product',
-      targetId: req.params.id,
-      details: `Arquivou o produto ${product.name}`,
-      createdAt: new Date().toISOString()
-    });
-  }
-  res.json({ success: true });
-});
-
-// --- COMPARISON ENGINE ---
-app.post('/api/products/compare', (req, res) => {
-  const { productIds } = req.body;
-  if (!Array.isArray(productIds) || productIds.length === 0) {
-    return res.status(400).json({ error: 'Envie uma lista com até 4 produtos para comparar.' });
-  }
-
-  const selectedProducts = products.filter(p => productIds.includes(p.id)).slice(0, 4);
-  if (selectedProducts.length === 0) {
-    return res.status(404).json({ error: 'Nenhum dos produtos selecionados foi encontrado.' });
-  }
-
-  // Automatic smart awards calculation
-  let bestOverall = selectedProducts[0];
-  let bestValue = selectedProducts[0];
-  let bestPerformance = selectedProducts[0];
-  let cheapest = selectedProducts[0];
-
-  for (const p of selectedProducts) {
-    if (p.ratingOverall > bestOverall.ratingOverall) bestOverall = p;
-    if (p.costBenefitScore > bestValue.costBenefitScore) bestValue = p;
-    if (p.performanceScore > bestPerformance.performanceScore) bestPerformance = p;
-    if (p.currentBestPrice < cheapest.currentBestPrice && p.currentBestPrice > 0) cheapest = p;
-  }
-
-  // Gather unique spec keys across all compared products
-  const allSpecKeys = Array.from(
-    new Set(selectedProducts.flatMap(p => Object.keys(p.specs || {})))
-  );
-
-  res.json({
-    products: selectedProducts,
-    specKeys: allSpecKeys,
-    awards: {
-      bestOverallId: bestOverall.id,
-      bestValueId: bestValue.id,
-      bestPerformanceId: bestPerformance.id,
-      cheapestId: cheapest.id
-    }
-  });
-});
-
-// --- REVIEWS & CREATORS ---
-app.get('/api/reviews', (req, res) => {
-  const authUser = getAuthUser(req);
-  const { status, creatorId, productId } = req.query;
-  let list = [...reviews];
-  if (status) {
-    list = list.filter(r => r.status === status);
-  } else {
-    // default public only unless creator viewing their own or admin
-    if (authUser.role !== 'ADMIN') {
-      list = list.filter(r => r.status === 'published' || (r.creatorId === authUser.id));
-    }
-  }
-  if (creatorId) {
-    list = list.filter(r => r.creatorId === creatorId);
-  }
-  if (productId) {
-    list = list.filter(r => r.productId === productId);
-  }
-  res.json(list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-});
-
-app.get('/api/reviews/:id', (req, res) => {
-  const review = reviews.find(r => r.id === req.params.id);
-  if (!review) {
-    return res.status(404).json({ error: 'Review não encontrado.' });
-  }
-  review.views += 1;
-  const reviewComments = comments.filter(c => c.reviewId === review.id);
-  const relatedProduct = products.find(p => p.id === review.productId);
-  const relatedOffers = offers.filter(o => o.productId === review.productId);
-
-  res.json({
-    review,
-    comments: reviewComments,
-    product: relatedProduct,
-    offers: relatedOffers
-  });
-});
-
-// Create Review (Creator or Admin)
-app.post('/api/reviews', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Apenas criadores aprovados e administradores podem publicar reviews.' });
-  }
-  const { productId, title, summary, fullContent, rating, recommendation, pros, cons, youtubeUrl, images, isDraft } = req.body;
-  if (!productId || !title || !summary) {
-    return res.status(400).json({ error: 'Produto, título e resumo são obrigatórios.' });
-  }
-
-  const product = products.find(p => p.id === productId);
-  if (!product) {
-    return res.status(404).json({ error: 'Produto não encontrado.' });
-  }
-
-  const youtubeVideoId = extractYouTubeId(youtubeUrl);
-  const status: 'draft' | 'pending' | 'published' = isDraft 
-    ? 'draft' 
-    : (authUser.role === 'ADMIN' || settings.autoApproveVerifiedCreators ? 'published' : 'pending');
-
-  const newReview: Review = {
-    id: `rev_${Date.now()}`,
-    productId,
-    productName: product.name,
-    productSlug: product.slug,
-    creatorId: authUser.id,
-    creatorName: authUser.name,
-    creatorUsername: authUser.username,
-    creatorAvatar: authUser.avatarUrl,
-    creatorLevel: authUser.creatorLevel || 'Novato',
-    title: title.trim(),
-    summary: summary.trim(),
-    fullContent: fullContent || summary,
-    rating: Math.min(10, Math.max(0, Number(rating) || 8.0)),
-    recommendation: recommendation || 'RECOMENDADO',
-    pros: Array.isArray(pros) ? pros : [],
-    cons: Array.isArray(cons) ? cons : [],
-    youtubeUrl: youtubeUrl || undefined,
-    youtubeVideoId,
-    images: Array.isArray(images) && images.length > 0 ? images : [product.imageUrl],
-    views: 0,
-    likes: 0,
-    likedBy: [],
-    commentsCount: 0,
-    status,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  reviews.unshift(newReview);
-
-  // If auto-published, update product reviewCount and average creator rating
-  if (status === 'published') {
-    product.reviewCount += 1;
-    const pubReviews = reviews.filter(r => r.productId === product.id && r.status === 'published');
-    const avgScore = pubReviews.reduce((acc, curr) => acc + curr.rating, 0) / pubReviews.length;
-    product.creatorRating = Number(avgScore.toFixed(1));
-    product.ratingOverall = Number(((product.communityRating + product.creatorRating) / 2).toFixed(1));
-  }
-
-  res.json({ success: true, review: newReview });
-});
-
-// Like / Unlike review
-app.post('/api/reviews/:id/like', (req, res) => {
-  const authUser = getAuthUser(req);
-  const review = reviews.find(r => r.id === req.params.id);
-  if (!review) return res.status(404).json({ error: 'Review não encontrado.' });
-
-  const userId = authUser.id;
-  const hasLiked = review.likedBy.includes(userId);
-
-  if (hasLiked) {
-    review.likedBy = review.likedBy.filter(id => id !== userId);
-    review.likes = Math.max(0, review.likes - 1);
-  } else {
-    review.likedBy.push(userId);
-    review.likes += 1;
-    // Add notification to creator if not self
-    if (review.creatorId !== userId) {
-      notifications.unshift({
-        id: `notif_${Date.now()}`,
-        userId: review.creatorId,
-        title: 'Nova curtida! 👍',
-        message: `${authUser.name} curtiu seu review "${review.title.slice(0, 35)}..."`,
-        link: `/review/${review.productSlug}`,
-        read: false,
-        type: 'like',
-        createdAt: new Date().toISOString()
-      });
-    }
-  }
-
-  res.json({ success: true, likes: review.likes, hasLiked: !hasLiked });
-});
-
-// Comments on review
-app.post('/api/reviews/:id/comments', (req, res) => {
-  const authUser = getAuthUser(req);
-  const { text, parentCommentId } = req.body;
-  if (!text || text.trim().length === 0) {
-    return res.status(400).json({ error: 'Texto do comentário não pode estar vazio.' });
-  }
-  const review = reviews.find(r => r.id === req.params.id);
-  if (!review) return res.status(404).json({ error: 'Review não encontrado.' });
-
-  const newComment: Comment = {
-    id: `com_${Date.now()}`,
-    reviewId: review.id,
-    userId: authUser.id,
-    userName: authUser.name,
-    userAvatar: authUser.avatarUrl,
-    userRole: authUser.role,
-    text: text.trim(),
-    likes: 0,
-    likedBy: [],
-    parentCommentId: parentCommentId || undefined,
-    createdAt: new Date().toISOString()
-  };
-
-  comments.push(newComment);
-  review.commentsCount += 1;
-
-  res.json({ success: true, comment: newComment });
-});
-
-// Review Moderation (Admin)
-app.post('/api/admin/reviews/:id/moderate', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Apenas administradores podem moderar reviews.' });
-  }
-  const { status, rejectionReason, moderationNotes } = req.body;
-  const review = reviews.find(r => r.id === req.params.id);
-  if (!review) return res.status(404).json({ error: 'Review não encontrado.' });
-
-  review.status = status;
-  review.rejectionReason = rejectionReason;
-  review.moderationNotes = moderationNotes;
-  review.updatedAt = new Date().toISOString();
-
-  // Notify creator
-  notifications.unshift({
-    id: `notif_${Date.now()}`,
-    userId: review.creatorId,
-    title: status === 'published' ? 'Review Aprovado! 🎉' : 'Review Rejeitado ou em Revisão',
-    message: status === 'published' 
-      ? `Seu review "${review.title}" foi aprovado e agora está disponível para todos os usuários!`
-      : `Seu review "${review.title}" foi ${status === 'rejected' ? 'rejeitado' : 'atualizado'}. Motivo: ${rejectionReason || 'Não especificado.'}`,
-    link: `/review/${review.productSlug}`,
-    read: false,
-    type: status === 'published' ? 'review_approved' : 'review_rejected',
-    createdAt: new Date().toISOString()
-  });
-
-  adminLogs.unshift({
-    id: `log_${Date.now()}`,
-    adminId: authUser.id,
-    adminName: authUser.name,
-    action: `MODERATE_REVIEW_${status.toUpperCase()}`,
-    targetType: 'Review',
-    targetId: review.id,
-    details: `${status === 'published' ? 'Aprovou' : 'Rejeitou'} o review "${review.title}" do criador ${review.creatorName}`,
-    createdAt: new Date().toISOString()
-  });
-
-  res.json({ success: true, review });
-});
-
-// --- USER RATINGS & EVALUATIONS ---
-app.post('/api/ratings', (req, res) => {
-  const authUser = getAuthUser(req);
-  const { productId, rating, title, comment, pros, cons, wouldRecommend, isVerifiedPurchase } = req.body;
-  if (!productId || rating === undefined) {
-    return res.status(400).json({ error: 'Produto e nota são obrigatórios.' });
-  }
-
-  // Prevent duplicate spam from the same user on the same product
-  const existing = userRatings.find(r => r.productId === productId && r.userId === authUser.id);
-  if (existing) {
-    // update existing
-    existing.rating = Number(rating);
-    existing.title = title || '';
-    existing.comment = comment || '';
-    existing.pros = Array.isArray(pros) ? pros : [];
-    existing.cons = Array.isArray(cons) ? cons : [];
-    existing.wouldRecommend = wouldRecommend !== false;
-    existing.isVerifiedPurchase = isVerifiedPurchase || existing.isVerifiedPurchase;
-    existing.createdAt = new Date().toISOString();
-  } else {
-    const newRating: UserRating = {
-      id: `rate_${Date.now()}`,
-      productId,
-      userId: authUser.id,
-      userName: authUser.name,
-      userAvatar: authUser.avatarUrl,
-      rating: Number(rating),
-      title: title || '',
-      comment: comment || '',
-      pros: Array.isArray(pros) ? pros : [],
-      cons: Array.isArray(cons) ? cons : [],
-      wouldRecommend: wouldRecommend !== false,
-      isVerifiedPurchase: Boolean(isVerifiedPurchase),
-      helpfulCount: 0,
-      helpfulBy: [],
-      reported: false,
-      createdAt: new Date().toISOString()
-    };
-    userRatings.push(newRating);
-  }
-
-  // Recalculate weighted community rating
-  const product = products.find(p => p.id === productId);
-  if (product) {
-    const prodRatings = userRatings.filter(r => r.productId === productId);
-    const avgRating = prodRatings.reduce((acc, curr) => acc + curr.rating, 0) / prodRatings.length;
-    product.communityRating = Number(avgRating.toFixed(1));
-    product.ratingCount = prodRatings.length;
-    product.ratingOverall = Number(((product.communityRating + product.creatorRating) / 2).toFixed(1));
-  }
-
-  res.json({ success: true });
-});
-
-// Helpful vote on user rating
-app.post('/api/ratings/:id/helpful', (req, res) => {
-  const authUser = getAuthUser(req);
-  const r = userRatings.find(item => item.id === req.params.id);
-  if (!r) return res.status(404).json({ error: 'Avaliação não encontrada.' });
-
-  const userId = authUser.id;
-  if (!r.helpfulBy.includes(userId)) {
-    r.helpfulBy.push(userId);
-    r.helpfulCount += 1;
-  } else {
-    r.helpfulBy = r.helpfulBy.filter(id => id !== userId);
-    r.helpfulCount = Math.max(0, r.helpfulCount - 1);
-  }
-  res.json({ success: true, helpfulCount: r.helpfulCount });
-});
-
-// --- OFFERS & AFFILIATE ENGINE (SAFE TRACKING) ---
-app.get('/api/offers', (req, res) => {
-  const { productId, featured } = req.query;
-  let list = [...offers];
-  if (productId) list = list.filter(o => o.productId === productId);
-  if (featured === 'true') list = list.sort((a, b) => b.discountPercentage - a.discountPercentage);
-  res.json(list);
-});
-
-// Track Affiliate Click (Returns destination URL and records event)
-app.post('/api/affiliates/click', (req, res) => {
-  const { offerId, creatorId } = req.body;
-  const offer = offers.find(o => o.id === offerId);
-  if (!offer) {
-    return res.status(404).json({ error: 'Oferta não encontrada.' });
-  }
-
-  const product = products.find(p => p.id === offer.productId);
-  const creator = creatorId ? users.find(u => u.id === creatorId) : undefined;
-
-  const click: AffiliateClick = {
-    id: `click_${Date.now()}`,
-    productId: offer.productId,
-    productName: product?.name || 'Produto',
-    offerId: offer.id,
-    creatorId: creator?.id,
-    creatorName: creator?.name,
-    storeName: offer.storeName,
-    createdAt: new Date().toISOString()
-  };
-
-  affiliateClicks.unshift(click);
-
-  res.json({
-    success: true,
-    clickId: click.id,
-    redirectUrl: offer.affiliateUrl
-  });
-});
-
-// Simulation of purchase conversion for Creator monetization demo
-app.post('/api/affiliates/simulate-conversion', (req, res) => {
-  const { offerId, creatorId } = req.body;
-  const offer = offers.find(o => o.id === offerId) || offers[0];
-  const product = products.find(p => p.id === offer.productId);
-  const creator = creatorId ? users.find(u => u.id === creatorId) : users.find(u => u.role === 'CREATOR');
-
-  const saleAmount = offer.price;
-  const store = stores.find(s => s.name === offer.storeName);
-  const storeCommissionRate = (store?.defaultCommissionPercentage || 3.5) / 100;
-  const totalCommission = Number((saleAmount * storeCommissionRate).toFixed(2));
-  
-  // Platform & Creator split based on settings
-  const creatorShare = settings.creatorCommissionRate / 100;
-  const creatorCommission = Number((totalCommission * creatorShare).toFixed(2));
-  const platformCommission = Number((totalCommission - creatorCommission).toFixed(2));
-
-  const conv: Conversion = {
-    id: `conv_${Date.now()}`,
-    clickId: `click_${Date.now()}`,
-    productId: offer.productId,
-    productName: product?.name || 'Produto',
-    creatorId: creator?.id,
-    creatorName: creator?.name,
-    storeName: offer.storeName,
-    saleAmount,
-    platformCommission,
-    creatorCommission,
-    status: 'confirmed',
-    createdAt: new Date().toISOString()
-  };
-
-  conversions.unshift(conv);
-
-  // Credit creator balance
-  if (creator) {
-    creator.balance += creatorCommission;
-    creator.totalEarnings += creatorCommission;
-
-    notifications.unshift({
-      id: `notif_${Date.now()}`,
-      userId: creator.id,
-      title: 'Nova comissão confirmada! 💰',
-      message: `Você recebeu R$ ${creatorCommission.toFixed(2)} pela venda de ${product?.name} na ${offer.storeName}!`,
-      link: '/painel-criador',
-      read: false,
-      type: 'commission',
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  res.json({ success: true, conversion: conv });
-});
-
-// --- CREATOR PORTAL & DASHBOARD ---
-app.get('/api/creators', (req, res) => {
-  const creators = users.filter(u => u.role === 'CREATOR');
-  const result = creators.map(c => {
-    const creatorReviews = reviews.filter(r => r.creatorId === c.id && r.status === 'published');
-    const totalViews = creatorReviews.reduce((acc, curr) => acc + curr.views, 0);
-    const creatorConversions = conversions.filter(conv => conv.creatorId === c.id);
-    return {
-      ...c,
-      totalReviews: creatorReviews.length,
-      totalViews,
-      totalConversions: creatorConversions.length
-    };
-  });
-  res.json(result);
-});
-
-app.get('/api/creators/:usernameOrId', (req, res) => {
-  const { usernameOrId } = req.params;
-  const creator = users.find(u => (u.username === usernameOrId || u.id === usernameOrId) && u.role === 'CREATOR');
-  if (!creator) return res.status(404).json({ error: 'Criador não encontrado.' });
-
-  const creatorReviews = reviews.filter(r => r.creatorId === creator.id && r.status === 'published');
-  const creatorConversions = conversions.filter(c => c.creatorId === creator.id);
-
-  res.json({
-    creator,
-    reviews: creatorReviews,
-    conversionsCount: creatorConversions.length
-  });
-});
-
-app.get('/api/creator/dashboard', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Acesso restrito a criadores de conteúdo.' });
-  }
-
-  const creatorId = authUser.id;
-  const myReviews = reviews.filter(r => r.creatorId === creatorId);
-  const myClicks = affiliateClicks.filter(c => c.creatorId === creatorId);
-  const myConversions = conversions.filter(c => c.creatorId === creatorId);
-
-  const totalViews = myReviews.reduce((acc, curr) => acc + curr.views, 0);
-  const totalLikes = myReviews.reduce((acc, curr) => acc + curr.likes, 0);
-  const estimatedEarnings = myConversions.reduce((acc, curr) => acc + curr.creatorCommission, 0);
-
-  // Performance timeline mock
-  const chartData = [
-    { day: 'Seg', views: 820, clicks: 45, conversions: 2, earnings: 51.76 },
-    { day: 'Ter', views: 1140, clicks: 68, conversions: 4, earnings: 103.52 },
-    { day: 'Qua', views: 950, clicks: 52, conversions: 1, earnings: 25.88 },
-    { day: 'Qui', views: 1400, clicks: 89, conversions: 5, earnings: 129.40 },
-    { day: 'Sex', views: 1890, clicks: 120, conversions: 7, earnings: 181.16 },
-    { day: 'Sáb', views: 2200, clicks: 145, conversions: 9, earnings: 232.92 },
-    { day: 'Dom', views: 1750, clicks: 110, conversions: 6, earnings: 155.28 }
-  ];
-
-  res.json({
-    user: authUser,
-    metrics: {
-      totalReviews: myReviews.length,
-      publishedReviews: myReviews.filter(r => r.status === 'published').length,
-      pendingReviews: myReviews.filter(r => r.status === 'pending').length,
-      totalViews,
-      totalLikes,
-      totalClicks: myClicks.length,
-      totalConversions: myConversions.length,
-      balance: authUser.balance,
-      pendingBalance: authUser.pendingBalance,
-      totalEarnings: authUser.totalEarnings || estimatedEarnings
-    },
-    reviews: myReviews,
-    recentConversions: myConversions.slice(0, 10),
-    chartData
-  });
-});
-
-// Request withdrawal simulation
-app.post('/api/creator/withdraw', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Apenas criadores podem solicitar saque.' });
-  }
-
-  const { amount } = req.body;
-  const numAmount = Number(amount);
-
-  if (numAmount < settings.minWithdrawalAmount) {
-    return res.status(400).json({ error: `Valor mínimo para saque é de R$ ${settings.minWithdrawalAmount.toFixed(2)}.` });
-  }
-
-  if (numAmount > authUser.balance) {
-    return res.status(400).json({ error: 'Saldo insuficiente para realizar este saque.' });
-  }
-
-  authUser.balance -= numAmount;
-
-  notifications.unshift({
-    id: `notif_${Date.now()}`,
-    userId: authUser.id,
-    title: 'Solicitação de Saque Efetuada! 💸',
-    message: `Seu saque de R$ ${numAmount.toFixed(2)} foi enviado para processamento PIX com sucesso.`,
-    link: '/painel-criador',
-    read: false,
-    type: 'system',
-    createdAt: new Date().toISOString()
-  });
-
-  res.json({ success: true, remainingBalance: authUser.balance });
-});
-
-// --- FAVORITES / WISHLIST ---
-app.get('/api/favorites', (req, res) => {
-  const authUser = getAuthUser(req);
-  const userFavs = favorites.filter(f => f.userId === authUser.id);
-  const populated = userFavs.map(f => ({
-    ...f,
-    product: products.find(p => p.id === f.productId)
-  })).filter(f => f.product !== undefined);
-  res.json(populated);
-});
-
-app.post('/api/favorites/toggle', (req, res) => {
-  const authUser = getAuthUser(req);
-  const { productId, priceAlertThreshold } = req.body;
-  const index = favorites.findIndex(f => f.userId === authUser.id && f.productId === productId);
-  if (index >= 0) {
-    favorites.splice(index, 1);
-    res.json({ success: true, isFavorite: false });
-  } else {
-    favorites.push({
-      id: `fav_${Date.now()}`,
-      userId: authUser.id,
-      productId,
-      priceAlertThreshold: Number(priceAlertThreshold) || undefined,
-      addedAt: new Date().toISOString()
-    });
-    res.json({ success: true, isFavorite: true });
-  }
-});
-
-// --- NOTIFICATIONS ---
-app.get('/api/notifications', (req, res) => {
-  const authUser = getAuthUser(req);
-  const userNotifs = notifications.filter(n => n.userId === authUser.id);
-  res.json(userNotifs);
-});
-
-app.post('/api/notifications/:id/read', (req, res) => {
-  const authUser = getAuthUser(req);
-  const notif = notifications.find(n => n.id === req.params.id && n.userId === authUser.id);
-  if (notif) notif.read = true;
-  res.json({ success: true });
-});
-
-app.post('/api/notifications/read-all', (req, res) => {
-  const authUser = getAuthUser(req);
-  notifications.filter(n => n.userId === authUser.id).forEach(n => n.read = true);
-  res.json({ success: true });
-});
-
-// --- REPORTS & MODERATION ---
-app.post('/api/reports', (req, res) => {
-  const authUser = getAuthUser(req);
-  const { targetType, targetId, reason, details } = req.body;
-  const newReport: Report = {
-    id: `rep_${Date.now()}`,
-    targetType,
-    targetId,
-    reason: reason || 'Spam',
-    details: details || '',
-    reportedByUserId: authUser.id,
-    reportedByUserName: authUser.name,
-    status: 'pending',
-    createdAt: new Date().toISOString()
-  };
-  reports.unshift(newReport);
-  res.json({ success: true, message: 'Denúncia recebida com sucesso. Nossa moderação analisará o caso.' });
-});
-
-app.get('/api/admin/reports', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
-  res.json(reports);
-});
-
-app.post('/api/admin/reports/:id/resolve', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
-  const { status } = req.body;
-  const report = reports.find(r => r.id === req.params.id);
-  if (report) {
-    report.status = status || 'resolved';
-    adminLogs.unshift({
-      id: `log_${Date.now()}`,
-      adminId: authUser.id,
-      adminName: authUser.name,
-      action: 'RESOLVE_REPORT',
-      targetType: report.targetType,
-      targetId: report.targetId,
-      details: `Marcou denúncia ${report.id} como ${report.status}`,
-      createdAt: new Date().toISOString()
-    });
-  }
-  res.json({ success: true });
-});
-
-// --- ADMIN AUDIT LOGS & STATS ---
-app.get('/api/admin/logs', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
-  res.json(adminLogs);
-});
-
-app.get('/api/admin/stats', (req, res) => {
-  const authUser = getAuthUser(req);
-  if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
-
-  const totalViews = products.reduce((acc, curr) => acc + curr.viewsCount, 0);
-  const totalRevenue = conversions.reduce((acc, curr) => acc + curr.platformCommission + curr.creatorCommission, 0);
-  const platformEarnings = conversions.reduce((acc, curr) => acc + curr.platformCommission, 0);
-  const creatorPayouts = conversions.reduce((acc, curr) => acc + curr.creatorCommission, 0);
-
-  res.json({
-    totalUsers: users.length,
-    totalCreators: users.filter(u => u.role === 'CREATOR').length,
-    totalProducts: products.filter(p => p.status === 'active').length,
-    totalReviews: reviews.length,
-    pendingReviews: reviews.filter(r => r.status === 'pending').length,
-    totalClicks: affiliateClicks.length,
-    totalConversions: conversions.length,
-    totalViews,
-    totalRevenue,
-    platformEarnings,
-    creatorPayouts,
-    openReports: reports.filter(r => r.status === 'pending').length
-  });
-});
-
-// --- ADS ---
-app.get('/api/ads', (req, res) => {
-  res.json(adBanners.filter(a => a.active));
-});
-
-// --- HEALTH CHECK ---
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString(), platform: settings.platformName });
-});
-
-// ==========================================
-// VITE MIDDLEWARE & SERVER STARTUP
-// ==========================================
-export async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  // Only start standalone listener if not in serverless runtime
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`ReviewHub server running on http://0.0.0.0:${PORT}`);
-    });
-  }
-}
-
-if (!process.env.VERCEL) {
-  startServer();
-}
-
-export default app;

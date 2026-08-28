@@ -1,0 +1,127 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Tech hardware or gadget product listed on ReviewHub",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "brandId": { "type": "string" },
+        "brandName": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "galleryImages": { "type": "array", "items": { "type": "string" } },
+        "specs": { "type": "object" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "referencePrice": { "type": "number" },
+        "currentBestPrice": { "type": "number" },
+        "idealPrice": { "type": "number" },
+        "targetAudience": { "type": "string" },
+        "recommendationVerdict": { "type": "string", "enum": ["RECOMENDADO", "DEPENDE", "NAO_RECOMENDADO"] },
+        "verdictReason": { "type": "string" },
+        "ratingOverall": { "type": "number" },
+        "communityRating": { "type": "number" },
+        "creatorRating": { "type": "number" },
+        "performanceScore": { "type": "number" },
+        "qualityScore": { "type": "number" },
+        "costBenefitScore": { "type": "number" },
+        "durabilityScore": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "ratingCount": { "type": "number" },
+        "pros": { "type": "array", "items": { "type": "string" } },
+        "cons": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["active", "archived", "draft"] },
+        "viewsCount": { "type": "number" },
+        "isSponsored": { "type": "boolean" },
+        "sponsoredTag": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "slug", "categoryId", "brandId", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "In-depth review created by tech creators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "productSlug": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "creatorUsername": { "type": "string" },
+        "creatorAvatar": { "type": "string" },
+        "creatorLevel": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "fullContent": { "type": "string" },
+        "rating": { "type": "number" },
+        "recommendation": { "type": "string" },
+        "pros": { "type": "array", "items": { "type": "string" } },
+        "cons": { "type": "array", "items": { "type": "string" } },
+        "youtubeUrl": { "type": "string" },
+        "youtubeVideoId": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "views": { "type": "number" },
+        "likes": { "type": "number" },
+        "likedBy": { "type": "array", "items": { "type": "string" } },
+        "commentsCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["published", "pending", "draft", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "creatorId", "title", "rating", "status"]
+    },
+    "Category": {
+      "title": "Category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "iconName": { "type": "string" },
+        "description": { "type": "string" },
+        "productCount": { "type": "number" }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Brand": {
+      "title": "Brand",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Offer": {
+      "title": "Offer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "storeLogo": { "type": "string" },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "discountPercentage": { "type": "number" },
+        "affiliateUrl": { "type": "string" },
+        "inStock": { "type": "boolean" },
+        "lastUpdated": { "type": "string" },
+        "couponCode": { "type": "string" },
+        "isSponsored": { "type": "boolean" }
+      },
+      "required": ["id", "productId", "storeName", "price", "affiliateUrl"]
+    }
+  }
+}
