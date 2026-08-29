@@ -6,6 +6,9 @@ import type {
   Comment, Favorite, Notification, Conversion, AffiliateClick, Report, 
   AdminLog, AdBanner, PlatformSettings 
 } from './src/types/index.js';
+import { priceRobotEngine } from './src/services/priceRobotEngine.js';
+import { supabasePriceDataLayer } from './src/services/supabasePriceDataLayer.js';
+import { checkSupabaseConnection } from './src/services/supabase.js';
 
 const app = express();
 const PORT = 3000;
@@ -15,13 +18,13 @@ app.use(express.json());
 // --- IN-MEMORY DATABASE WITH ROBUST PERSISTENCE ---
 
 let settings: PlatformSettings = {
-  platformName: 'ReviewHub',
-  platformLogoText: 'ReviewHub',
+  platformName: 'C-REVIEW',
+  platformLogoText: 'C-REVIEW',
   creatorCommissionRate: 40,
   platformCommissionRate: 60,
   minWithdrawalAmount: 50,
   autoApproveVerifiedCreators: false,
-  featuredNotice: 'Explore comparativos técnicos e reviews de criadores antes de decidir sua compra.'
+  featuredNotice: 'Explore comparativos técnicos, vereditos de bancada e o robô de monitoramento de preços.'
 };
 
 let users: User[] = [
@@ -2008,6 +2011,109 @@ app.get('/api/admin/stats', (req, res) => {
 // --- ADS ---
 app.get('/api/ads', (req, res) => {
   res.json(adBanners.filter(a => a.active));
+});
+
+// --- PRICE ROBOT & SUPABASE API ENDPOINTS ---
+app.get('/api/supabase/status', async (req, res) => {
+  try {
+    const status = await checkSupabaseConnection();
+    res.json(status);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/stats', async (req, res) => {
+  try {
+    const stats = priceRobotEngine.getStats(products.length);
+    res.json(stats);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/sources', async (req, res) => {
+  try {
+    const sources = await priceRobotEngine.getSourcesAsync();
+    res.json(sources);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/price-robot/sources/:id/toggle', async (req, res) => {
+  try {
+    const updated = await priceRobotEngine.toggleSourceStatusAsync(req.params.id);
+    if (!updated) return res.status(404).json({ error: 'Fonte não encontrada' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/offers', async (req, res) => {
+  try {
+    const { productId } = req.query;
+    if (productId && typeof productId === 'string') {
+      const offers = await supabasePriceDataLayer.getOffersByProductId(productId);
+      return res.json(offers);
+    }
+    const allOffers = await supabasePriceDataLayer.getAllOffers();
+    res.json(allOffers);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/history/:productId', async (req, res) => {
+  try {
+    const prod = products.find(p => p.id === req.params.productId || p.slug === req.params.productId);
+    if (!prod) return res.status(404).json({ error: 'Produto não encontrado' });
+    const history = priceRobotEngine.getProductPriceHistory(prod);
+    res.json(history);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/analysis/:productId', async (req, res) => {
+  try {
+    const prod = products.find(p => p.id === req.params.productId || p.slug === req.params.productId);
+    if (!prod) return res.status(404).json({ error: 'Produto não encontrado' });
+    const analysis = priceRobotEngine.analyzePrice(prod);
+    res.json(analysis);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/logs', async (req, res) => {
+  try {
+    const logs = await priceRobotEngine.getLogsAsync();
+    res.json(logs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/price-robot/scan', async (req, res) => {
+  try {
+    const result = await priceRobotEngine.executeScan(products);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/price-robot/scan-product/:productId', async (req, res) => {
+  try {
+    const prod = products.find(p => p.id === req.params.productId || p.slug === req.params.productId);
+    if (!prod) return res.status(404).json({ error: 'Produto não encontrado' });
+    const result = await priceRobotEngine.scanSingleProduct(prod);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- HEALTH CHECK ---

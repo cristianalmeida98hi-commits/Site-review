@@ -1,6 +1,6 @@
 {
-  "name": "ReviewHub",
-  "description": "Plataforma especializada em reviews, avaliações, comparativos e descoberta de produtos para compra com análises de especialistas e criadores.",
+  "name": "C-REVIEW",
+  "description": "Plataforma especializada em reviews, avaliações técnicas, comparativos e robô inteligente de monitoramento de preços.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

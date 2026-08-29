@@ -892,5 +892,17 @@ export const apiService = {
   getSettings: () => fetchJson<PlatformSettings>('/settings').catch(() => localStore.getSettings()),
   updatePlatformSettings: (data: Partial<PlatformSettings>) => fetchJson<{ success: boolean; settings: PlatformSettings }>('/settings', { method: 'PUT', body: JSON.stringify(data) }).catch(() => ({ success: true, settings: localStore.updateSettings(data) })),
   updateSettings: (data: Partial<PlatformSettings>) => fetchJson<{ success: boolean; settings: PlatformSettings }>('/settings', { method: 'PUT', body: JSON.stringify(data) }).catch(() => ({ success: true, settings: localStore.updateSettings(data) })),
-  getAds: () => fetchJson<AdBanner[]>('/ads').catch(() => localStore.getAds())
+  getAds: () => fetchJson<AdBanner[]>('/ads').catch(() => localStore.getAds()),
+
+  // Price Robot & Supabase Integration
+  getSupabaseStatus: () => fetchJson<any>('/supabase/status').catch(() => ({ isConfigured: false, connected: false, message: 'Offline / Memória' })),
+  getPriceRobotStats: () => fetchJson<any>('/price-robot/stats').catch(() => null),
+  getPriceRobotSources: () => fetchJson<any[]>('/price-robot/sources').catch(() => []),
+  togglePriceRobotSource: (sourceId: string) => fetchJson<any>(`/price-robot/sources/${sourceId}/toggle`, { method: 'POST' }),
+  getPriceRobotOffers: (productId?: string) => fetchJson<any[]>(`/price-robot/offers${productId ? `?productId=${productId}` : ''}`).catch(() => []),
+  getPriceRobotHistory: (productId: string) => fetchJson<any>(`/price-robot/history/${productId}`).catch(() => null),
+  getPriceRobotAnalysis: (productId: string) => fetchJson<any>(`/price-robot/analysis/${productId}`).catch(() => null),
+  getPriceRobotLogs: () => fetchJson<any[]>('/price-robot/logs').catch(() => []),
+  triggerPriceRobotScan: () => fetchJson<any>('/price-robot/scan', { method: 'POST' }),
+  triggerPriceRobotScanProduct: (productId: string) => fetchJson<any>(`/price-robot/scan-product/${productId}`, { method: 'POST' })
 };

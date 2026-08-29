@@ -4,16 +4,16 @@ import {
   XCircle, AlertTriangle, Settings, Plus, Trash2, Edit3, 
   RefreshCw, Check, Clock, Sparkles, ExternalLink, Database,
   Layers, Tag, FileText, BarChart3, Search, Sliders, CheckSquare, Edit,
-  HelpCircle
+  HelpCircle, Bot, Zap, Globe, Cpu, Server, CheckCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 import { apiService } from '../services/api.js';
 import { specificationService } from '../services/specificationService.js';
-import type { Review, Product, Report, PlatformSettings, AuditLog, Category, Brand, SpecificationItem } from '../types/index.js';
+import type { Review, Product, Report, PlatformSettings, AuditLog, Category, Brand, SpecificationItem, PriceSource, PriceRobotLog } from '../types/index.js';
 import { ScoreBadge } from '../components/common/ScoreBadge.js';
 import { VerdictBadge } from '../components/common/VerdictBadge.js';
 
-type MainTabGroup = 'catalog' | 'content' | 'commercial' | 'users' | 'system';
+type MainTabGroup = 'catalog' | 'content' | 'commercial' | 'robot' | 'users' | 'system';
 
 interface AdminSpecRow {
   label: string;
@@ -40,6 +40,16 @@ export const AdminPanelPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [dbTestResult, setDbTestResult] = useState<any>(null);
   const [isTestingDb, setIsTestingDb] = useState(false);
+
+  // Price Robot & Supabase State
+  const [robotSources, setRobotSources] = useState<PriceSource[]>([]);
+  const [robotLogs, setRobotLogs] = useState<PriceRobotLog[]>([]);
+  const [robotStats, setRobotStats] = useState<any>(null);
+  const [supabaseStatus, setSupabaseStatus] = useState<any>(null);
+  const [isScanningRobot, setIsScanningRobot] = useState(false);
+  const [isTestingLiveConnector, setIsTestingLiveConnector] = useState(false);
+  const [selectedScanProduct, setSelectedScanProduct] = useState<string>('');
+  const [liveScanResult, setLiveScanResult] = useState<any>(null);
 
   // Modal de Rejeição de Review
   const [rejectModalReviewId, setRejectModalReviewId] = useState<string | null>(null);
@@ -69,7 +79,7 @@ export const AdminPanelPage: React.FC = () => {
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
-      const [st, pRevs, prods, reps, sets, logs, cats, brs] = await Promise.all([
+      const [st, pRevs, prods, reps, sets, logs, cats, brs, rSources, rLogs, rStats, supaStatus] = await Promise.all([
         apiService.getAdminStats(),
         apiService.getPendingReviews(),
         apiService.getProducts(),
@@ -77,7 +87,11 @@ export const AdminPanelPage: React.FC = () => {
         apiService.getPlatformSettings(),
         apiService.getAuditLogs(),
         apiService.getCategories(),
-        apiService.getBrands()
+        apiService.getBrands(),
+        apiService.getPriceRobotSources(),
+        apiService.getPriceRobotLogs(),
+        apiService.getPriceRobotStats(),
+        apiService.getSupabaseStatus()
       ]);
       setStats(st);
       setPendingReviews(pRevs);
@@ -87,12 +101,70 @@ export const AdminPanelPage: React.FC = () => {
       setAuditLogs(logs);
       setCategories(cats);
       setBrands(brs);
+      setRobotSources(rSources);
+      setRobotLogs(rLogs);
+      setRobotStats(rStats);
+      setSupabaseStatus(supaStatus);
+      if (prods.length > 0 && !selectedScanProduct) setSelectedScanProduct(prods[0].id);
       if (cats.length > 0 && !prodCategory) setProdCategory(cats[0].id);
       if (brs.length > 0 && !prodBrand) setProdBrand(brs[0].id);
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleRobotSource = async (sourceId: string) => {
+    try {
+      const updated = await apiService.togglePriceRobotSource(sourceId);
+      setRobotSources(prev => prev.map(s => s.id === sourceId ? updated : s));
+    } catch (err: any) {
+      alert('Erro ao alterar status da fonte: ' + err.message);
+    }
+  };
+
+  const handleRunBatchRobotScan = async () => {
+    try {
+      setIsScanningRobot(true);
+      const result = await apiService.triggerPriceRobotScan();
+      alert(`Varredura do Robô concluída com sucesso!\n${result.scannedProductsCount} produtos analisados.\n${result.totalOffersFound} ofertas capturadas e normalizadas.`);
+      await loadAdminData();
+    } catch (err: any) {
+      alert('Erro durante varredura do robô: ' + err.message);
+    } finally {
+      setIsScanningRobot(false);
+    }
+  };
+
+  const handleRunSingleProductLiveScan = async () => {
+    if (!selectedScanProduct) {
+      alert('Selecione um produto para escanear.');
+      return;
+    }
+    try {
+      setIsTestingLiveConnector(true);
+      setLiveScanResult(null);
+      const result = await apiService.triggerPriceRobotScanProduct(selectedScanProduct);
+      setLiveScanResult(result);
+      await loadAdminData();
+    } catch (err: any) {
+      alert('Erro ao testar conector de preço ao vivo: ' + err.message);
+    } finally {
+      setIsTestingLiveConnector(false);
+    }
+  };
+
+  const handleTestDatabase = async () => {
+    try {
+      setIsTestingDb(true);
+      const status = await apiService.getSupabaseStatus();
+      setDbTestResult(status);
+      setSupabaseStatus(status);
+    } catch (e: any) {
+      setDbTestResult({ connected: false, message: e.message });
+    } finally {
+      setIsTestingDb(false);
     }
   };
 
@@ -218,18 +290,6 @@ export const AdminPanelPage: React.FC = () => {
     }
   };
 
-  const handleTestDatabase = async () => {
-    try {
-      setIsTestingDb(true);
-      const res = await apiService.testFirestoreConnection();
-      setDbTestResult(res);
-    } catch (e: any) {
-      setDbTestResult({ connected: false, message: e.message });
-    } finally {
-      setIsTestingDb(false);
-    }
-  };
-
   const handleApproveReview = async (reviewId: string) => {
     try {
       await apiService.moderateReview(reviewId, 'PUBLISHED');
@@ -339,6 +399,21 @@ export const AdminPanelPage: React.FC = () => {
         >
           <ShoppingBag className="w-4 h-4" />
           <span>💼 COMERCIAL</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveGroup('robot'); setSubTab('robot_sources'); }}
+          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 relative ${
+            activeGroup === 'robot'
+              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Bot className="w-4 h-4 text-orange-400" />
+          <span>🤖 ROBÔ DE PREÇOS (SUPABASE)</span>
+          <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded text-[9px] font-mono">
+            Ao Vivo
+          </span>
         </button>
 
         <button
@@ -504,6 +579,246 @@ export const AdminPanelPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* CONTEÚDO DO GRUPO: 🤖 ROBÔ DE PREÇOS (SUPABASE) */}
+      {activeGroup === 'robot' && (
+        <div className="space-y-6">
+          
+          {/* Top Status & Metrics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-medium">Status do Robô</span>
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
+              <div className="text-xl font-bold text-emerald-400 font-mono">
+                {robotStats?.status === 'running' ? 'Varredura Ativa' : 'Em Monitoramento'}
+              </div>
+              <div className="text-[10px] text-zinc-400">Intervalo: a cada 60 min</div>
+            </div>
+
+            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
+              <span className="text-xs text-zinc-400 font-medium">Fontes Homologadas</span>
+              <div className="text-xl font-bold text-white font-mono">
+                {robotSources.filter(s => s.status === 'active').length} / {robotSources.length}
+              </div>
+              <div className="text-[10px] text-zinc-400">Lojas Nacionais Ativas</div>
+            </div>
+
+            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
+              <span className="text-xs text-zinc-400 font-medium">Confiança Média</span>
+              <div className="text-xl font-bold text-orange-400 font-mono">
+                {robotStats?.averageConfidence || 97.5}%
+              </div>
+              <div className="text-[10px] text-zinc-400">Normalização e Outliers</div>
+            </div>
+
+            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
+              <span className="text-xs text-zinc-400 font-medium">Banco Supabase</span>
+              <div className={`text-xl font-bold font-mono ${supabaseStatus?.connected ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {supabaseStatus?.connected ? 'PostgreSQL Conectado' : 'Modo Seguro / Memória'}
+              </div>
+              <div className="text-[10px] text-zinc-400">{supabaseStatus?.supabaseUrlHost || 'Pronto para credenciais'}</div>
+            </div>
+          </div>
+
+          {/* Teste do Conector Ao Vivo (Mercado Livre API / Multi-Lojas) */}
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#283044] pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-orange-400" />
+                  <span>Teste do Conector Ao Vivo (Mercado Livre & Lojas Oficiais)</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Executa a consulta real, pontuação de confiança (0-100), verificação de outliers e persiste a oferta e histórico no Supabase.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRunBatchRobotScan}
+                  disabled={isScanningRobot}
+                  className="px-3.5 py-2 rounded-lg bg-[#283044] text-zinc-200 hover:text-white text-xs font-bold flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningRobot ? 'animate-spin' : ''}`} />
+                  <span>{isScanningRobot ? 'Varrendo Catálogo...' : 'Varredura Geral'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-zinc-300 mb-1">Selecione o Produto para Varredura de Preços:</label>
+                <select
+                  value={selectedScanProduct}
+                  onChange={(e) => setSelectedScanProduct(e.target.value)}
+                  className="tech-input text-xs"
+                >
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — Atual: R$ {p.currentBestPrice.toLocaleString('pt-BR')} (Meta: R$ {p.idealPrice ? p.idealPrice.toLocaleString('pt-BR') : 'N/D'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:self-end">
+                <button
+                  onClick={handleRunSingleProductLiveScan}
+                  disabled={isTestingLiveConnector || !selectedScanProduct}
+                  className="btn-orange-primary text-xs px-5 py-2.5 flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  <Bot className={`w-4 h-4 ${isTestingLiveConnector ? 'animate-bounce' : ''}`} />
+                  <span>{isTestingLiveConnector ? 'Consultando Fontes...' : 'Executar Varredura Ao Vivo'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Resultado do Teste Ao Vivo */}
+            {liveScanResult && (
+              <div className="bg-[#0D0F15] border border-[#283044] rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-[#283044] pb-2">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <CheckCheck className="w-4 h-4" />
+                    <span>Varredura Concluída: {liveScanResult.offers?.length || 0} Ofertas Capturadas</span>
+                  </span>
+                  <span className="text-xs font-mono font-bold text-white">
+                    Menor Preço Normalizado: R$ {liveScanResult.bestPrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {liveScanResult.offers?.slice(0, 4).map((off: any, idx: number) => (
+                    <div key={idx} className="p-3 bg-[#141721] rounded-lg border border-[#283044] text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-orange-400">{off.storeName}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+                          Confiança: {off.confidenceScore}% ({off.matchQuality})
+                        </span>
+                      </div>
+                      <div className="text-zinc-200 font-medium line-clamp-1">{off.rawTitle}</div>
+                      <div className="flex items-center justify-between text-zinc-400 pt-1 font-mono">
+                        <span className="text-emerald-400 font-bold text-sm">R$ {off.price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        {off.installmentText && <span className="text-[10px]">{off.installmentText}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tabela de Fontes Homologadas */}
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#283044] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-orange-400" />
+                  <span>Fontes de Preço & Conectores de Lojas</span>
+                </h3>
+                <p className="text-xs text-zinc-400">Ative ou pause lojas e configure intervalos de rastreio.</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#283044] text-zinc-400 font-bold uppercase text-[10px]">
+                    <th className="py-2.5 px-3">Loja / Conector</th>
+                    <th className="py-2.5 px-3">Tipo</th>
+                    <th className="py-2.5 px-3">Confiabilidade</th>
+                    <th className="py-2.5 px-3">Intervalo</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#283044]/60">
+                  {robotSources.map(src => (
+                    <tr key={src.id} className="hover:bg-[#1f2433]/50 transition-colors">
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <img src={src.logoUrl} alt={src.name} className="w-6 h-6 rounded-md object-contain bg-white p-0.5" />
+                          <span className="font-bold text-white">{src.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-zinc-300 font-mono text-[11px]">
+                        {src.parserType === 'api_connector' ? '⚡ API Conector' : '🔍 Scraper HTML'}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="text-emerald-400 font-mono font-bold">{src.reliabilityScore}%</span>
+                      </td>
+                      <td className="py-3 px-3 text-zinc-400 font-mono">
+                        {src.scrapeIntervalMinutes} min
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          src.status === 'active' 
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                            : 'bg-zinc-700/50 text-zinc-400'
+                        }`}>
+                          {src.status === 'active' ? 'Ativo' : 'Pausado'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => handleToggleRobotSource(src.id)}
+                          className={`text-xs px-2.5 py-1 rounded font-bold transition-colors ${
+                            src.status === 'active'
+                              ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/40'
+                              : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40'
+                          }`}
+                        >
+                          {src.status === 'active' ? 'Pausar' : 'Ativar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Logs de Execução do Robô de Preços */}
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#283044] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Server className="w-5 h-5 text-orange-400" />
+                  <span>Logs de Execução & Auditoria do Robô</span>
+                </h3>
+                <p className="text-xs text-zinc-400">Histórico de varreduras, tempos de resposta e validação de ofertas.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {robotLogs.length === 0 ? (
+                <div className="text-center py-6 text-zinc-500 text-xs">Nenhum log registrado ainda.</div>
+              ) : (
+                robotLogs.map((log, idx) => (
+                  <div key={log.id || idx} className="p-3 bg-[#0D0F15] rounded-xl border border-[#283044] text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${log.status === 'success' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                        <span className="font-bold text-white">{log.sourceName}</span>
+                        {log.productName && <span className="text-zinc-400">({log.productName})</span>}
+                      </div>
+                      <span className="text-zinc-500 text-[10px] font-mono">
+                        {new Date(log.timestamp).toLocaleTimeString('pt-BR')} • {log.durationMs}ms
+                      </span>
+                    </div>
+                    <p className="text-zinc-300 text-[11px]">{log.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
         </div>
       )}
 

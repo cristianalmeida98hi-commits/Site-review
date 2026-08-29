@@ -5,13 +5,13 @@ import type {
 } from '../types/index.js';
 
 export const initialSettings: PlatformSettings = {
-  platformName: 'ReviewHub',
-  platformLogoText: 'ReviewHub',
+  platformName: 'C-REVIEW',
+  platformLogoText: 'C-REVIEW',
   creatorCommissionRate: 40,
   platformCommissionRate: 60,
   minWithdrawalAmount: 50,
   autoApproveVerifiedCreators: false,
-  featuredNotice: 'Explore comparativos técnicos e reviews de criadores antes de decidir sua compra.'
+  featuredNotice: 'Explore comparativos técnicos, vereditos de bancada e o robô de monitoramento de preços.'
 };
 
 export const initialUsers: User[] = [

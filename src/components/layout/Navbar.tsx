@@ -122,14 +122,14 @@ export const Navbar: React.FC<NavbarProps> = () => {
             className="flex items-center gap-3 cursor-pointer shrink-0 select-none group"
           >
             <div className="w-10 h-10 rounded-xl bg-[#FF6B00] border-2 border-black flex items-center justify-center font-black text-black text-xl shadow-[3px_3px_0px_0px_#000] group-hover:bg-[#FF8533] transition-all">
-              R
+              C
             </div>
             <div className="flex flex-col">
               <span className="font-black text-xl tracking-tight text-black flex items-center gap-1">
-                REVIEW<span className="bg-[#FF6B00] text-black px-1.5 py-0.2 rounded-md border-2 border-black text-sm">HUB</span>
+                C-<span className="bg-[#FF6B00] text-black px-1.5 py-0.2 rounded-md border-2 border-black text-sm">REVIEW</span>
               </span>
               <span className="text-[10px] font-black text-zinc-600 -mt-0.5 tracking-widest uppercase">
-                Hardware & Tech
+                Hardware & Price Robot
               </span>
             </div>
           </div>

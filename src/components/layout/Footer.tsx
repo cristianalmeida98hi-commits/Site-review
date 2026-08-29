@@ -13,18 +13,18 @@ export const Footer: React.FC = () => {
         <div className="space-y-3 md:col-span-1">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#FF6B00] border-2 border-black flex items-center justify-center text-black font-black text-lg shadow-[2px_2px_0px_0px_#000]">
-              R
+              C
             </div>
             <span className="font-black text-lg tracking-tight text-black uppercase">
-              REVIEW<span className="bg-[#FF6B00] text-black px-1.5 py-0.5 rounded-md border-2 border-black text-xs ml-1">HUB</span>
+              C-<span className="bg-[#FF6B00] text-black px-1.5 py-0.5 rounded-md border-2 border-black text-xs ml-1">REVIEW</span>
             </span>
           </div>
           <p className="text-zinc-700 leading-relaxed text-xs font-semibold">
-            A plataforma de referência para avaliações de hardware, comparativos técnicos detalhados, análise de custo-benefício e rastreador de melhores ofertas.
+            A plataforma de referência para avaliações de hardware, comparativos técnicos detalhados, vereditos de especialistas e robô de monitoramento de preços.
           </p>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#FF6B00] border-2 border-black text-black text-[11px] font-black shadow-[2px_2px_0px_0px_#000]">
             <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-            <span>Dados técnicos verificados</span>
+            <span>Preços & Dados técnicos auditados</span>
           </div>
         </div>
 
@@ -94,7 +94,7 @@ export const Footer: React.FC = () => {
             Links de afiliados podem gerar uma comissão para a plataforma e criadores parceiros sem nenhum custo adicional para o comprador. Os vereditos são baseados em especificações oficiais e testes rigorosos.
           </p>
           <div className="text-[11px] text-zinc-600 font-bold">
-            © {new Date().getFullYear()} ReviewHub Inc. Todos os direitos reservados.
+            © {new Date().getFullYear()} C-REVIEW. Todos os direitos reservados.
           </div>
         </div>
 
