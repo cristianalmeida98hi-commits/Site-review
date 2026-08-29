@@ -2,18 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, Users, Video, ShoppingBag, DollarSign, CheckCircle, 
   XCircle, AlertTriangle, Settings, Plus, Trash2, Edit3, 
-  RefreshCw, Check, Clock, Sparkles, ExternalLink 
+  RefreshCw, Check, Clock, Sparkles, ExternalLink, Database,
+  Layers, Tag, FileText, BarChart3, Search, Sliders, CheckSquare, Edit,
+  HelpCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 import { apiService } from '../services/api.js';
-import type { Review, Product, Report, PlatformSettings, AuditLog, Category, Brand } from '../types/index.js';
+import { specificationService } from '../services/specificationService.js';
+import type { Review, Product, Report, PlatformSettings, AuditLog, Category, Brand, SpecificationItem } from '../types/index.js';
 import { ScoreBadge } from '../components/common/ScoreBadge.js';
 import { VerdictBadge } from '../components/common/VerdictBadge.js';
+
+type MainTabGroup = 'catalog' | 'content' | 'commercial' | 'users' | 'system';
+
+interface AdminSpecRow {
+  label: string;
+  value: string;
+  source: string;
+  confidence: 'high' | 'medium' | 'low';
+  accepted: boolean;
+}
 
 export const AdminPanelPage: React.FC = () => {
   const { currentUser, setCurrentPage } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'moderation' | 'products' | 'reports' | 'settings' | 'logs'>('moderation');
+  const [activeGroup, setActiveGroup] = useState<MainTabGroup>('catalog');
+  const [subTab, setSubTab] = useState<string>('products');
+
   const [stats, setStats] = useState<any>(null);
   const [pendingReviews, setPendingReviews] = useState<Review[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -23,22 +38,33 @@ export const AdminPanelPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dbTestResult, setDbTestResult] = useState<any>(null);
+  const [isTestingDb, setIsTestingDb] = useState(false);
 
-  // Rejection modal state
+  // Modal de Rejeição de Review
   const [rejectModalReviewId, setRejectModalReviewId] = useState<string | null>(null);
   const [rejectFeedback, setRejectFeedback] = useState('');
 
-  // New Product modal state
-  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
-  const [newProdName, setNewProdName] = useState('');
-  const [newProdCategory, setNewProdCategory] = useState('');
-  const [newProdBrand, setNewProdBrand] = useState('');
-  const [newProdImage, setNewProdImage] = useState('');
-  const [newProdDesc, setNewProdDesc] = useState('');
-  const [newProdPrice, setNewProdPrice] = useState<number>(1000);
-  const [newProdVerdict, setNewProdVerdict] = useState<'RECOMENDADO' | 'DEPENDE' | 'NAO_RECOMENDADO'>('RECOMENDADO');
-  const [newProdVerdictReason, setNewProdVerdictReason] = useState('');
-  const [newProdTarget, setNewProdTarget] = useState('');
+  // Modal de Cadastro/Edição de Produto
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [prodName, setProdName] = useState('');
+  const [prodCategory, setProdCategory] = useState('');
+  const [prodBrand, setProdBrand] = useState('');
+  const [prodImage, setProdImage] = useState('');
+  const [prodDesc, setProdDesc] = useState('');
+  const [prodPrice, setProdPrice] = useState<number>(1000);
+  const [prodIdealPrice, setProdIdealPrice] = useState<number>(900);
+  const [prodVerdict, setProdVerdict] = useState<'RECOMENDADO' | 'DEPENDE' | 'NAO_RECOMENDADO'>('RECOMENDADO');
+  const [prodVerdictReason, setProdVerdictReason] = useState('');
+  const [prodTarget, setProdTarget] = useState('');
+  const [prodPros, setProdPros] = useState('Desempenho excelente\nBaixo consumo');
+  const [prodCons, setProdCons] = useState('Preço de lançamento elevado');
+  
+  // Especificações automáticas do modal
+  const [specsTable, setSpecsTable] = useState<Record<string, AdminSpecRow>>({});
+  const [isSearchingSpecs, setIsSearchingSpecs] = useState(false);
+  const [specsSearchNotes, setSpecsSearchNotes] = useState<string | null>(null);
 
   const loadAdminData = async () => {
     try {
@@ -61,8 +87,8 @@ export const AdminPanelPage: React.FC = () => {
       setAuditLogs(logs);
       setCategories(cats);
       setBrands(brs);
-      if (cats.length > 0 && !newProdCategory) setNewProdCategory(cats[0].id);
-      if (brs.length > 0 && !newProdBrand) setNewProdBrand(brs[0].id);
+      if (cats.length > 0 && !prodCategory) setProdCategory(cats[0].id);
+      if (brs.length > 0 && !prodBrand) setProdBrand(brs[0].id);
     } catch (e) {
       console.error(e);
     } finally {
@@ -73,6 +99,136 @@ export const AdminPanelPage: React.FC = () => {
   useEffect(() => {
     loadAdminData();
   }, [currentUser]);
+
+  // Função para buscar especificações automaticamente via SpecificationService
+  const handleAutoFetchSpecs = async () => {
+    if (!prodName.trim()) {
+      alert('Preencha o nome do produto antes de buscar as especificações.');
+      return;
+    }
+
+    try {
+      setIsSearchingSpecs(true);
+      setSpecsSearchNotes(null);
+      const categoryObj = categories.find(c => c.id === prodCategory);
+      const brandObj = brands.find(b => b.id === prodBrand);
+
+      const result = await specificationService.searchSpecifications(
+        prodName.trim(),
+        categoryObj?.name || 'GPU',
+        brandObj?.name
+      );
+
+      const newSpecs: Record<string, { label: string; value: string; source: string; confidence: 'high' | 'medium' | 'low'; accepted: boolean }> = {};
+
+      for (const [key, item] of Object.entries(result.items)) {
+        newSpecs[key] = {
+          label: item.label,
+          value: item.value,
+          source: item.source,
+          confidence: item.confidence,
+          accepted: item.confidence === 'high' && item.value !== 'Informação não disponível'
+        };
+      }
+
+      setSpecsTable(newSpecs);
+      setSpecsSearchNotes(
+        result.success 
+          ? `✓ Ficha técnica localizada com sucesso (${result.confidenceScore}% de dados oficiais preenchidos via ${result.sourceProvider}).`
+          : `⚠️ Nenhuma ficha técnica exata foi encontrada. Preencha manualmente ou edite os campos abaixo.`
+      );
+    } catch (err: any) {
+      alert('Erro ao consultar especificações automáticas: ' + err.message);
+    } finally {
+      setIsSearchingSpecs(false);
+    }
+  };
+
+  const handleOpenNewProduct = () => {
+    setEditingProductId(null);
+    setProdName('');
+    setProdDesc('');
+    setProdImage('');
+    setProdPrice(1000);
+    setProdIdealPrice(900);
+    setProdVerdict('RECOMENDADO');
+    setProdVerdictReason('');
+    setProdTarget('');
+    setProdPros('Desempenho sólido\nConstrução durável');
+    setProdCons('Preço elevado');
+    setSpecsTable({});
+    setSpecsSearchNotes(null);
+    setIsProductModalOpen(true);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // Converte specs aprovadas em dicionário final
+      const finalSpecs: Record<string, string> = {};
+      const detailedSpecs: Record<string, SpecificationItem> = {};
+
+      (Object.entries(specsTable) as [string, AdminSpecRow][]).forEach(([k, v]) => {
+        if (v.accepted && v.value) {
+          finalSpecs[v.label] = v.value;
+          detailedSpecs[k] = {
+            key: k,
+            label: v.label,
+            value: v.value,
+            source: v.source,
+            confidence: v.confidence,
+            updatedAt: new Date().toISOString().split('T')[0]
+          };
+        }
+      });
+
+      const categoryObj = categories.find(c => c.id === prodCategory);
+      const brandObj = brands.find(b => b.id === prodBrand);
+
+      const productPayload = {
+        name: prodName,
+        categoryId: prodCategory,
+        categoryName: categoryObj?.name || 'Hardware',
+        brandId: prodBrand,
+        brandName: brandObj?.name || 'Marca',
+        imageUrl: prodImage || 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=600&auto=format&fit=crop&q=80',
+        description: prodDesc,
+        currentBestPrice: prodPrice,
+        referencePrice: prodPrice * 1.15,
+        idealPrice: prodIdealPrice || prodPrice * 0.9,
+        recommendationVerdict: prodVerdict,
+        verdictReason: prodVerdictReason || 'Excelente relação custo-benefício comprovada.',
+        targetAudience: prodTarget || 'Gamers e profissionais',
+        pros: prodPros.split('\n').filter(p => p.trim()),
+        cons: prodCons.split('\n').filter(c => c.trim()),
+        specs: Object.keys(finalSpecs).length > 0 ? finalSpecs : { 'Garantia': '12 meses' },
+        specificationsDetailed: detailedSpecs
+      };
+
+      if (editingProductId) {
+        await apiService.updateProduct(editingProductId, productPayload);
+      } else {
+        await apiService.createProduct(productPayload);
+      }
+
+      setIsProductModalOpen(false);
+      await loadAdminData();
+    } catch (e: any) {
+      alert('Erro ao salvar produto: ' + e.message);
+    }
+  };
+
+  const handleTestDatabase = async () => {
+    try {
+      setIsTestingDb(true);
+      const res = await apiService.testFirestoreConnection();
+      setDbTestResult(res);
+    } catch (e: any) {
+      setDbTestResult({ connected: false, message: e.message });
+    } finally {
+      setIsTestingDb(false);
+    }
+  };
 
   const handleApproveReview = async (reviewId: string) => {
     try {
@@ -96,251 +252,172 @@ export const AdminPanelPage: React.FC = () => {
     }
   };
 
-  const handleCreateProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await apiService.createProduct({
-        name: newProdName,
-        categoryId: newProdCategory,
-        brandId: newProdBrand,
-        imageUrl: newProdImage || 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=600&auto=format&fit=crop&q=80',
-        description: newProdDesc,
-        currentBestPrice: newProdPrice,
-        referencePrice: newProdPrice * 1.15,
-        idealPrice: newProdPrice * 0.9,
-        recommendationVerdict: newProdVerdict,
-        verdictReason: newProdVerdictReason || 'Excelente opção testada em laboratório.',
-        targetAudience: newProdTarget || 'Entusiastas e gamers',
-        pros: ['Alta eficiência', 'Construção sólida'],
-        cons: ['Disponibilidade limitada'],
-        specs: { 'Garantia': '12 meses' }
-      });
-      setIsNewProductModalOpen(false);
-      // Reset form
-      setNewProdName('');
-      setNewProdDesc('');
-      await loadAdminData();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!settings) return;
-    try {
-      await apiService.updatePlatformSettings(settings);
-      alert('Configurações salvas com sucesso!');
-      await loadAdminData();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  if (isLoading || !stats) {
-    return (
-      <div className="py-20 text-center space-y-3">
-        <div className="w-10 h-10 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-xs text-slate-400">Carregando painel de administração e fila de moderação...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-8 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-            <Shield className="w-7 h-7 text-rose-500" />
-            <span>Painel Administrativo do ReviewHub</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Modere reviews de criadores, gerencie catálogo de produtos, controle comissões e audite denúncias.
-          </p>
-        </div>
-
-        <button
-          onClick={loadAdminData}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Atualizar Dados</span>
-        </button>
-      </div>
-
-      {/* Global Stats Matrix */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Usuários</div>
-          <div className="text-xl font-black text-white">{stats.totalUsers}</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Criadores</div>
-          <div className="text-xl font-black text-cyan-400">{stats.totalCreators}</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Produtos</div>
-          <div className="text-xl font-black text-white">{stats.totalProducts}</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Cliques Afiliados</div>
-          <div className="text-xl font-black text-blue-400">{stats.totalAffiliateClicks}</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Receita Bruta</div>
-          <div className="text-xl font-black text-emerald-400">R$ {stats.totalRevenue.toFixed(0)}</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-rose-300">Moderação Pendente</div>
-          <div className="text-xl font-black text-rose-400">{stats.pendingReviewsCount}</div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-        {[
-          { id: 'moderation', label: `Fila de Moderação (${pendingReviews.length})` },
-          { id: 'products', label: `Gerenciar Produtos (${products.length})` },
-          { id: 'reports', label: `Denúncias (${reports.length})` },
-          { id: 'settings', label: 'Taxas & Configurações' },
-          { id: 'logs', label: 'Logs de Auditoria' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-              activeTab === tab.id
-                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* 1. MODERATION QUEUE TAB */}
-      {activeTab === 'moderation' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-black text-white">Reviews Aguardando Aprovação</h3>
-            <span className="text-xs text-slate-400">Garante que apenas reviews imparciais e fundamentados vão para o site</span>
+      {/* Header do Painel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#283044] pb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-orange-400">
+            <Shield className="w-5 h-5" />
           </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-white">Painel Administrativo</h1>
+            <p className="text-xs text-zinc-400">Gestão global do catálogo, moderação de conteúdo, comercial e configurações</p>
+          </div>
+        </div>
 
-          {pendingReviews.length === 0 ? (
-            <div className="p-12 text-center text-xs text-slate-400 rounded-3xl bg-slate-900 border border-slate-800 space-y-2">
-              <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto" />
-              <div className="font-bold text-slate-200">Fila de moderação limpa!</div>
-              <p>Nenhum review pendente de revisão no momento.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {pendingReviews.map(rev => (
-                <div key={rev.id} className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                    <div className="flex items-center gap-3">
-                      <img src={rev.creatorAvatar} alt={rev.creatorName} className="w-10 h-10 rounded-full object-cover" />
-                      <div>
-                        <div className="font-bold text-xs text-white">{rev.creatorName}</div>
-                        <div className="text-[10px] text-cyan-400">Produto: {rev.productName}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ScoreBadge score={rev.rating} size="sm" />
-                      <VerdictBadge verdict={rev.recommendation} size="sm" />
-                    </div>
-                  </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadAdminData}
+            className="p-2 rounded-lg bg-[#141721] border border-[#283044] text-zinc-300 hover:text-white text-xs flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Atualizar Dados</span>
+          </button>
+        </div>
+      </div>
 
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-100">{rev.title}</h4>
-                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">{rev.summary}</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800">
-                    <div>
-                      <span className="font-bold text-emerald-400">✓ Prós: </span>
-                      {rev.pros.join(', ') || 'Nenhum'}
-                    </div>
-                    <div>
-                      <span className="font-bold text-rose-400">✗ Contras: </span>
-                      {rev.cons.join(', ') || 'Nenhum'}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      onClick={() => setRejectModalReviewId(rev.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-colors"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      <span>Rejeitar / Solicitar Ajustes</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleApproveReview(rev.id)}
-                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-colors shadow-lg shadow-emerald-500/20"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Aprovar e Publicar</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Cards de Métricas Principais */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-[#141721] border border-[#283044] rounded-xl p-4">
+            <div className="text-xs text-zinc-400 font-medium">Produtos Ativos</div>
+            <div className="text-2xl font-bold text-white font-mono mt-1">{stats.totalProducts || products.length}</div>
+          </div>
+          <div className="bg-[#141721] border border-[#283044] rounded-xl p-4">
+            <div className="text-xs text-zinc-400 font-medium">Reviews Publicadas</div>
+            <div className="text-2xl font-bold text-orange-400 font-mono mt-1">{stats.totalReviews || 0}</div>
+          </div>
+          <div className="bg-[#141721] border border-[#283044] rounded-xl p-4">
+            <div className="text-xs text-zinc-400 font-medium">Reviews Pendentes</div>
+            <div className="text-2xl font-bold text-amber-400 font-mono mt-1">{pendingReviews.length}</div>
+          </div>
+          <div className="bg-[#141721] border border-[#283044] rounded-xl p-4">
+            <div className="text-xs text-zinc-400 font-medium">Volume Transacionado</div>
+            <div className="text-2xl font-bold text-emerald-400 font-mono mt-1">R$ {(stats.totalSales || 0).toLocaleString('pt-BR')}</div>
+          </div>
         </div>
       )}
 
-      {/* 2. PRODUCTS MANAGEMENT TAB */}
-      {activeTab === 'products' && (
-        <div className="space-y-4">
+      {/* Abas Principais Agrupadas */}
+      <div className="flex border-b border-[#283044] gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => { setActiveGroup('catalog'); setSubTab('products'); }}
+          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 ${
+            activeGroup === 'catalog'
+              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>📦 CATÁLOGO</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveGroup('content'); setSubTab('moderation'); }}
+          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 relative ${
+            activeGroup === 'content'
+              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>📝 CONTEÚDO</span>
+          {pendingReviews.length > 0 && (
+            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+          )}
+        </button>
+
+        <button
+          onClick={() => { setActiveGroup('commercial'); setSubTab('offers'); }}
+          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 ${
+            activeGroup === 'commercial'
+              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>💼 COMERCIAL</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveGroup('users'); setSubTab('creators'); }}
+          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 ${
+            activeGroup === 'users'
+              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>👥 USUÁRIOS</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveGroup('system'); setSubTab('settings'); }}
+          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 ${
+            activeGroup === 'system'
+              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>⚙️ SISTEMA</span>
+        </button>
+      </div>
+
+      {/* CONTEÚDO DO GRUPO: 📦 CATÁLOGO */}
+      {activeGroup === 'catalog' && (
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-black text-white">Catálogo de Produtos Cadastrados</h3>
+            <h2 className="text-base font-bold text-white">Catálogo de Hardware & Produtos</h2>
             <button
-              onClick={() => setIsNewProductModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition-colors shadow-lg shadow-cyan-500/20"
+              onClick={handleOpenNewProduct}
+              className="btn-orange-primary text-xs px-3.5 py-2 flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
-              <span>Adicionar Novo Produto</span>
+              <span>Cadastrar Novo Produto</span>
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/60">
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl overflow-hidden">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 uppercase text-[10px]">
-                  <th className="p-3.5">Produto</th>
-                  <th className="p-3.5">Categoria</th>
-                  <th className="p-3.5">Veredito</th>
-                  <th className="p-3.5">Melhor Preço</th>
-                  <th className="p-3.5">Nota</th>
-                  <th className="p-3.5">Views</th>
-                  <th className="p-3.5 text-right">Ações</th>
+                <tr className="border-b border-[#283044] bg-[#0D0F15] text-zinc-400 font-bold uppercase text-[11px]">
+                  <th className="py-3 px-4">Produto</th>
+                  <th className="py-3 px-4">Categoria</th>
+                  <th className="py-3 px-4">Veredito</th>
+                  <th className="py-3 px-4">Preço Atual</th>
+                  <th className="py-3 px-4">Nota</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
-                {products.map(prod => (
-                  <tr key={prod.id} className="hover:bg-slate-850/50">
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <img src={prod.imageUrl} alt={prod.name} className="w-8 h-8 rounded-lg object-contain bg-slate-950 p-1" />
+              <tbody className="divide-y divide-[#283044]">
+                {products.map(p => (
+                  <tr key={p.id} className="hover:bg-[#1A1E2B]/50 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <img src={p.imageUrl} alt={p.name} className="w-9 h-9 object-contain rounded bg-[#0D0F15] p-1 border border-[#283044]" />
                         <div>
-                          <div className="font-bold text-slate-100">{prod.name}</div>
-                          <div className="text-[10px] text-slate-400">{prod.brandName}</div>
+                          <div className="font-bold text-white">{p.name}</div>
+                          <div className="text-[11px] text-zinc-400">{p.brandName}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-3.5 text-slate-300 font-medium">{prod.categoryName}</td>
-                    <td className="p-3.5"><VerdictBadge verdict={prod.recommendationVerdict} size="sm" /></td>
-                    <td className="p-3.5 text-emerald-400 font-bold">R$ {prod.currentBestPrice.toFixed(2)}</td>
-                    <td className="p-3.5"><ScoreBadge score={prod.ratingOverall} size="sm" /></td>
-                    <td className="p-3.5 text-slate-300 font-medium">{prod.viewsCount.toLocaleString()}</td>
-                    <td className="p-3.5 text-right space-x-2">
+                    <td className="py-3 px-4 text-zinc-300">{p.categoryName}</td>
+                    <td className="py-3 px-4">
+                      <VerdictBadge verdict={p.recommendationVerdict} size="sm" />
+                    </td>
+                    <td className="py-3 px-4 font-mono font-bold text-white">
+                      R$ {p.currentBestPrice > 0 ? p.currentBestPrice.toLocaleString('pt-BR') : 'Sob consulta'}
+                    </td>
+                    <td className="py-3 px-4">
+                      <ScoreBadge score={p.ratingOverall} size="sm" />
+                    </td>
+                    <td className="py-3 px-4 text-right">
                       <button
-                        onClick={() => setCurrentPage('product-detail', { slug: prod.slug })}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+                        onClick={() => setCurrentPage('product-detail', { slug: p.slug })}
+                        className="text-xs text-orange-400 hover:underline mr-3"
                       >
                         Ver
                       </button>
@@ -353,41 +430,48 @@ export const AdminPanelPage: React.FC = () => {
         </div>
       )}
 
-      {/* 3. REPORTS TAB */}
-      {activeTab === 'reports' && (
-        <div className="space-y-4">
-          <h3 className="text-base font-black text-white">Denúncias da Comunidade</h3>
-          {reports.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400 rounded-2xl bg-slate-900 border border-slate-800">
-              Nenhuma denúncia pendente.
+      {/* CONTEÚDO DO GRUPO: 📝 CONTEÚDO */}
+      {activeGroup === 'content' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white">Moderação de Reviews Pendentes ({pendingReviews.length})</h2>
+          </div>
+
+          {pendingReviews.length === 0 ? (
+            <div className="bg-[#141721] border border-[#283044] rounded-2xl p-8 text-center text-xs text-zinc-400">
+              <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+              Nenhuma review aguardando moderação no momento. Todas foram revisadas!
             </div>
           ) : (
-            <div className="space-y-3">
-              {reports.map(rep => (
-                <div key={rep.id} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-rose-400">Motivo: {rep.reason}</span>
-                    <span className="text-[10px] text-slate-500">{new Date(rep.createdAt).toLocaleDateString('pt-BR')}</span>
+            <div className="space-y-4">
+              {pendingReviews.map(rev => (
+                <div key={rev.id} className="bg-[#141721] border border-[#283044] rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#283044] pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <img src={rev.creatorAvatar} alt={rev.creatorName} className="w-8 h-8 rounded-full object-cover" />
+                      <div>
+                        <div className="text-xs font-bold text-white">{rev.creatorName}</div>
+                        <div className="text-[10px] text-zinc-400">Submetido para: {rev.productName}</div>
+                      </div>
+                    </div>
+                    <ScoreBadge score={rev.rating} size="sm" />
                   </div>
-                  <p className="text-xs text-slate-300">{rep.details || 'Sem detalhes informados.'}</p>
+
+                  <h3 className="text-sm font-bold text-white">{rev.title}</h3>
+                  <p className="text-xs text-zinc-300">{rev.summary}</p>
+
                   <div className="flex justify-end gap-2 pt-2">
                     <button
-                      onClick={async () => {
-                        await apiService.resolveReport(rep.id, 'DISMISSED');
-                        await loadAdminData();
-                      }}
-                      className="px-3 py-1 rounded-lg bg-slate-800 text-xs font-bold text-slate-400"
+                      onClick={() => setRejectModalReviewId(rev.id)}
+                      className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold"
                     >
-                      Descartar
+                      Rejeitar
                     </button>
                     <button
-                      onClick={async () => {
-                        await apiService.resolveReport(rep.id, 'RESOLVED');
-                        await loadAdminData();
-                      }}
-                      className="px-3 py-1 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold"
+                      onClick={() => handleApproveReview(rev.id)}
+                      className="btn-orange-primary text-xs px-4 py-1.5"
                     >
-                      Remover Conteúdo & Punir
+                      Aprovar e Publicar
                     </button>
                   </div>
                 </div>
@@ -397,267 +481,323 @@ export const AdminPanelPage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. SETTINGS TAB */}
-      {activeTab === 'settings' && settings && (
-        <div className="max-w-2xl mx-auto p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-6">
-          <div>
-            <h3 className="text-lg font-black text-white">Configurações Gerais da Plataforma</h3>
-            <p className="text-xs text-slate-400 mt-1">Divisão de comissões de afiliados, limites e regras de moderação.</p>
+      {/* CONTEÚDO DO GRUPO: 💼 COMERCIAL */}
+      {activeGroup === 'commercial' && (
+        <div className="space-y-6">
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
+            <h3 className="text-base font-bold text-white">Comissões & Transparência de Afiliados</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              O ReviewHub divide comissões de vendas qualificadas entre a plataforma e o criador responsável pela recomendação.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="bg-[#0D0F15] p-4 rounded-xl border border-[#283044]">
+                <div className="text-xs text-zinc-400">Taxa do Criador</div>
+                <div className="text-xl font-bold text-orange-400 font-mono mt-1">{settings?.creatorCommissionRate || 40}%</div>
+              </div>
+              <div className="bg-[#0D0F15] p-4 rounded-xl border border-[#283044]">
+                <div className="text-xs text-zinc-400">Taxa da Plataforma</div>
+                <div className="text-xl font-bold text-zinc-200 font-mono mt-1">{settings?.platformCommissionRate || 60}%</div>
+              </div>
+              <div className="bg-[#0D0F15] p-4 rounded-xl border border-[#283044]">
+                <div className="text-xs text-zinc-400">Saque Mínimo</div>
+                <div className="text-xl font-bold text-emerald-400 font-mono mt-1">R$ {settings?.minWithdrawalAmount || 50},00</div>
+              </div>
+            </div>
           </div>
+        </div>
+      )}
 
-          <form onSubmit={handleSaveSettings} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+      {/* CONTEÚDO DO GRUPO: 👥 USUÁRIOS */}
+      {activeGroup === 'users' && (
+        <div className="space-y-6">
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6">
+            <h3 className="text-base font-bold text-white mb-4">Gestão de Criadores Certificados</h3>
+            <p className="text-xs text-zinc-400">
+              Criadores com canal verificado e histórico de publicações rigorosas possuem permissão de publicação e divisão de receita de afiliados.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* CONTEÚDO DO GRUPO: ⚙️ SISTEMA */}
+      {activeGroup === 'system' && (
+        <div className="space-y-6">
+          {/* Teste de Conexão com Firestore */}
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Repasse ao Criador (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={settings.creatorCommissionRate}
-                  onChange={e => setSettings({ ...settings, creatorCommissionRate: parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Database className="w-5 h-5 text-orange-400" />
+                  <span>Diagnóstico de Banco de Dados & Firestore</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Teste a conexão direta e saúde dos registros na nuvem.</p>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Taxa da Plataforma (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={settings.platformCommissionRate}
-                  onChange={e => setSettings({ ...settings, platformCommissionRate: parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Valor Mínimo de Resgate / Saque (R$)</label>
-              <input
-                type="number"
-                min="10"
-                value={settings.minimumWithdrawalAmount}
-                onChange={e => setSettings({ ...settings, minimumWithdrawalAmount: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-              />
-            </div>
-
-            <div className="pt-2">
-              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.autoApproveVerifiedCreators}
-                  onChange={e => setSettings({ ...settings, autoApproveVerifiedCreators: e.target.checked })}
-                  className="accent-cyan-400"
-                />
-                <span>Aprovar automaticamente reviews de criadores nível Especialista / Verificados</span>
-              </label>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-slate-800">
               <button
-                type="submit"
-                className="px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase"
+                onClick={handleTestDatabase}
+                disabled={isTestingDb}
+                className="btn-orange-primary text-xs px-4 py-2"
               >
-                Salvar Configurações
+                {isTestingDb ? 'Testando Conexão...' : 'Executar Teste de Conexão'}
               </button>
             </div>
-          </form>
-        </div>
-      )}
 
-      {/* 5. AUDIT LOGS TAB */}
-      {activeTab === 'logs' && (
-        <div className="space-y-4">
-          <h3 className="text-base font-black text-white">Registro de Auditoria de Ações Administrativas</h3>
-          <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/60">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 uppercase text-[10px]">
-                  <th className="p-3.5">Data/Hora</th>
-                  <th className="p-3.5">Administrador</th>
-                  <th className="p-3.5">Ação</th>
-                  <th className="p-3.5">Alvo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {auditLogs.map(log => (
-                  <tr key={log.id}>
-                    <td className="p-3.5 text-slate-400 text-[11px]">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
-                    <td className="p-3.5 font-bold text-slate-200">{log.userName}</td>
-                    <td className="p-3.5 text-cyan-400 font-medium">{log.action}</td>
-                    <td className="p-3.5 text-slate-300">{log.target}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {dbTestResult && (
+              <div className={`p-4 rounded-xl border text-xs font-mono ${
+                dbTestResult.connected 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              }`}>
+                <div className="font-bold mb-1">{dbTestResult.connected ? '✓ Firestore Conectado com Sucesso' : '✗ Erro de Conexão'}</div>
+                <div>Status: {dbTestResult.message}</div>
+                {dbTestResult.projectId && (
+                  <div className="mt-1 text-zinc-400">Projeto: {dbTestResult.projectId} ({dbTestResult.productCount || 0} produtos sincronizados)</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Rejection Modal */}
-      {rejectModalReviewId && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          onClick={() => setRejectModalReviewId(null)}
-        >
-          <div 
-            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-slate-100 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="text-base font-black text-rose-400">Rejeitar ou Solicitar Ajustes no Review</h3>
-            <p className="text-xs text-slate-400">Explique ao criador o que precisa ser corrigido antes da publicação.</p>
+      {/* MODAL DE CADASTRO/EDIÇÃO DE PRODUTO COM BUSCA AUTOMÁTICA DE ESPECIFICAÇÕES */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl max-w-3xl w-full p-6 space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+            
+            <div className="flex items-center justify-between border-b border-[#283044] pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  {editingProductId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+                </h3>
+                <p className="text-xs text-zinc-400">Preencha os dados e use a busca automática de especificações oficiais.</p>
+              </div>
+              <button onClick={() => setIsProductModalOpen(false)} className="text-zinc-400 hover:text-white">✕</button>
+            </div>
 
-            <form onSubmit={handleRejectReview} className="space-y-3">
-              <textarea
-                value={rejectFeedback}
-                onChange={e => setRejectFeedback(e.target.value)}
-                placeholder="Ex: Por favor incluir dados de temperatura do teste ou corrigir o link do vídeo..."
-                rows={4}
-                required
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-400"
-              />
+            <form onSubmit={handleSaveProduct} className="space-y-6">
+              
+              {/* Informações Básicas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">Nome do Produto</label>
+                  <input
+                    type="text"
+                    value={prodName}
+                    onChange={(e) => setProdName(e.target.value)}
+                    placeholder="Ex: GeForce RTX 4060 8GB"
+                    className="tech-input"
+                    required
+                  />
+                </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">Categoria</label>
+                  <select
+                    value={prodCategory}
+                    onChange={(e) => setProdCategory(e.target.value)}
+                    className="tech-input"
+                  >
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">Marca</label>
+                  <select
+                    value={prodBrand}
+                    onChange={(e) => setProdBrand(e.target.value)}
+                    className="tech-input"
+                  >
+                    {brands.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">URL da Imagem</label>
+                  <input
+                    type="text"
+                    value={prodImage}
+                    onChange={(e) => setProdImage(e.target.value)}
+                    placeholder="https://..."
+                    className="tech-input"
+                  />
+                </div>
+              </div>
+
+              {/* Bloco de Veredito e Preço */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">Preço Atual (R$)</label>
+                  <input
+                    type="number"
+                    value={prodPrice}
+                    onChange={(e) => setProdPrice(parseFloat(e.target.value) || 0)}
+                    className="tech-input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">Preço Considerado Bom (R$)</label>
+                  <input
+                    type="number"
+                    value={prodIdealPrice}
+                    onChange={(e) => setProdIdealPrice(parseFloat(e.target.value) || 0)}
+                    className="tech-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">Veredito</label>
+                  <select
+                    value={prodVerdict}
+                    onChange={(e) => setProdVerdict(e.target.value as any)}
+                    className="tech-input"
+                  >
+                    <option value="RECOMENDADO">🟠 RECOMENDADO</option>
+                    <option value="DEPENDE">🟡 DEPENDE</option>
+                    <option value="NAO_RECOMENDADO">🔴 NÃO RECOMENDADO</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* BLOCO DE ESPECIFICAÇÕES AUTOMÁTICAS (REQUISITO FUNDAMENTAL) */}
+              <div className="bg-[#0D0F15] border border-[#283044] rounded-xl p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#283044] pb-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-orange-400" />
+                      Especificações Técnicas
+                    </h4>
+                    <span className="text-[11px] text-zinc-400">Consulte dados oficiais sem inventar informações.</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoFetchSpecs}
+                    disabled={isSearchingSpecs}
+                    className="btn-orange-primary text-xs px-3 py-1.5"
+                  >
+                    <Search className="w-3.5 h-3.5 mr-1" />
+                    <span>{isSearchingSpecs ? 'Buscando Fichas Oficiais...' : 'Buscar Especificações Automaticamente'}</span>
+                  </button>
+                </div>
+
+                {specsSearchNotes && (
+                  <div className="text-xs text-zinc-300 bg-[#141721] p-3 rounded-lg border border-[#283044]">
+                    {specsSearchNotes}
+                  </div>
+                )}
+
+                {/* Tabela de Revisão das Especificações (Aceitar, Editar, Rejeitar) */}
+                {Object.keys(specsTable).length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#283044] text-zinc-400 font-bold uppercase text-[10px]">
+                          <th className="py-2 px-3">Campo</th>
+                          <th className="py-2 px-3">Valor</th>
+                          <th className="py-2 px-3">Fonte</th>
+                          <th className="py-2 px-3">Confiança</th>
+                          <th className="py-2 px-3 text-right">Aprovar</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#283044]">
+                        {(Object.entries(specsTable) as [string, AdminSpecRow][]).map(([key, item]) => (
+                          <tr key={key} className="hover:bg-[#141721]">
+                            <td className="py-2 px-3 font-semibold text-zinc-300">{item.label}</td>
+                            <td className="py-2 px-3">
+                              <input
+                                type="text"
+                                value={item.value}
+                                onChange={(e) => {
+                                  setSpecsTable({
+                                    ...specsTable,
+                                    [key]: { ...item, value: e.target.value }
+                                  });
+                                }}
+                                className="bg-[#141721] border border-[#283044] rounded px-2 py-1 text-xs text-white w-full"
+                              />
+                            </td>
+                            <td className="py-2 px-3 text-zinc-400 text-[11px]">{item.source}</td>
+                            <td className="py-2 px-3">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                item.confidence === 'high' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'
+                              }`}>
+                                {item.confidence}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSpecsTable({
+                                    ...specsTable,
+                                    [key]: { ...item, accepted: !item.accepted }
+                                  });
+                                }}
+                                className={`p-1 rounded text-xs font-bold ${
+                                  item.accepted ? 'bg-emerald-500 text-white' : 'bg-zinc-700 text-zinc-400'
+                                }`}
+                              >
+                                {item.accepted ? '✓ Aceito' : '✗ Ignorar'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500 italic text-center py-4">
+                    Clique em "Buscar Especificações Automaticamente" para carregar os campos técnicos da categoria.
+                  </p>
+                )}
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-[#283044]">
                 <button
                   type="button"
-                  onClick={() => setRejectModalReviewId(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold"
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="btn-dark-secondary text-xs"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold"
+                  className="btn-orange-primary text-xs px-5 py-2.5"
                 >
-                  Confirmar Rejeição
+                  Salvar Produto no Catálogo
                 </button>
               </div>
+
             </form>
           </div>
         </div>
       )}
 
-      {/* New Product Modal */}
-      {isNewProductModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          onClick={() => setIsNewProductModalOpen(false)}
-        >
-          <div 
-            className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-slate-100 space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="text-base font-black text-white">Cadastrar Novo Produto</h3>
-
-            <form onSubmit={handleCreateProduct} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Nome do Produto *</label>
-                <input
-                  type="text"
-                  value={newProdName}
-                  onChange={e => setNewProdName(e.target.value)}
-                  placeholder="Ex: AMD Radeon RX 7800 XT 16GB"
-                  required
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Categoria *</label>
-                  <select
-                    value={newProdCategory}
-                    onChange={e => setNewProdCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                  >
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Marca *</label>
-                  <select
-                    value={newProdBrand}
-                    onChange={e => setNewProdBrand(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                  >
-                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Preço Atual (R$) *</label>
-                <input
-                  type="number"
-                  value={newProdPrice}
-                  onChange={e => setNewProdPrice(parseFloat(e.target.value))}
-                  required
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">URL da Imagem</label>
-                <input
-                  type="url"
-                  value={newProdImage}
-                  onChange={e => setNewProdImage(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Veredito Inicial</label>
-                <select
-                  value={newProdVerdict}
-                  onChange={e => setNewProdVerdict(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                >
-                  <option value="RECOMENDADO">🟢 Vale a Pena (Recomendado)</option>
-                  <option value="DEPENDE">🟡 Depende do Preço</option>
-                  <option value="NAO_RECOMENDADO">🔴 Não Recomendado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Motivo do Veredito</label>
-                <textarea
-                  value={newProdVerdictReason}
-                  onChange={e => setNewProdVerdictReason(e.target.value)}
-                  placeholder="Explique o motivo do veredito..."
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Descrição Breve</label>
-                <textarea
-                  value={newProdDesc}
-                  onChange={e => setNewProdDesc(e.target.value)}
-                  placeholder="Descrição geral do produto..."
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsNewProductModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs"
-                >
-                  Salvar Produto
-                </button>
+      {/* Modal de Rejeição de Review */}
+      {rejectModalReviewId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-base font-bold text-white">Rejeitar Review</h3>
+            <form onSubmit={handleRejectReview} className="space-y-4">
+              <textarea
+                value={rejectFeedback}
+                onChange={(e) => setRejectFeedback(e.target.value)}
+                placeholder="Informe o motivo da rejeição para o criador ajustar..."
+                className="tech-input"
+                rows={3}
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setRejectModalReviewId(null)} className="btn-dark-secondary text-xs">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-rose-500 text-white font-bold text-xs rounded-lg">Confirmar Rejeição</button>
               </div>
             </form>
           </div>

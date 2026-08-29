@@ -70,31 +70,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   return (
     <div 
       id="auth-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div 
         id="auth-modal-content"
-        className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-100 max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-lg bg-white border-2 border-black rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#000] text-black max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <button 
           id="btn-close-auth-modal"
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          className="absolute top-5 right-5 w-8 h-8 rounded-full border-2 border-black flex items-center justify-center text-black font-black hover:bg-[#FF6B00] transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FF6B00] border-2 border-black text-black text-xs font-black mb-3 shadow-[2px_2px_0px_0px_#000]">
+            <Sparkles className="w-3.5 h-3.5 fill-black" />
             <span>ReviewHub Community</span>
           </div>
-          <h2 className="text-2xl font-black tracking-tight">
+          <h2 className="text-2xl font-black tracking-tight text-black">
             {mode === 'login' ? 'Entrar no ReviewHub' : 'Crie sua Conta'}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs font-semibold text-zinc-600 mt-1">
             {mode === 'login' 
               ? 'Acesse avaliações, crie reviews, favorite produtos e acompanhe preços.' 
               : 'Junte-se à maior comunidade de decisões inteligentes de tecnologia.'}
@@ -102,13 +102,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         </div>
 
         {/* 1-Click Fast Profile Switcher for effortless review & moderation testing */}
-        <div className="mb-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-2.5">
-            <span className="flex items-center gap-1.5 text-cyan-400">
-              <UserCheck className="w-4 h-4" /> Acesso Rápido de Teste (1 Clique)
+        <div className="mb-6 p-4 rounded-2xl bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+          <div className="flex items-center justify-between text-xs font-black text-black mb-2.5">
+            <span className="flex items-center gap-1.5 text-black">
+              <UserCheck className="w-4 h-4 text-black" /> Acesso Rápido de Teste (1 Clique)
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 mb-3">
+          <p className="text-[11px] font-semibold text-zinc-600 mb-3">
             Alterne instantaneamente para experimentar permissões de Admin, Criador de Conteúdo ou Usuário:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -119,15 +119,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 type="button"
                 onClick={() => handleQuickSwitch(u.id)}
                 disabled={isSubmitting}
-                className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/60 hover:border-cyan-500/40 text-left transition-all group"
+                className="flex items-center gap-2.5 p-2 rounded-xl bg-white hover:bg-[#FF6B00] border-2 border-black text-left transition-all group shadow-[2px_2px_0px_0px_#000]"
               >
-                <img src={u.avatarUrl} alt={u.name} className="w-7 h-7 rounded-full object-cover shrink-0" />
+                <img src={u.avatarUrl} alt={u.name} className="w-7 h-7 rounded-full object-cover shrink-0 border border-black" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 truncate">{u.name}</div>
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    {u.role === 'ADMIN' && <span className="text-rose-400 font-semibold flex items-center gap-0.5"><Shield className="w-2.5 h-2.5" /> Admin</span>}
-                    {u.role === 'CREATOR' && <span className="text-cyan-400 font-semibold flex items-center gap-0.5"><Video className="w-2.5 h-2.5" /> Criador</span>}
-                    {u.role === 'USER' && <span className="text-slate-400">Usuário</span>}
+                  <div className="text-xs font-black text-black truncate">{u.name}</div>
+                  <div className="text-[10px] text-zinc-600 font-bold flex items-center gap-1">
+                    {u.role === 'ADMIN' && <span className="text-rose-600 font-black flex items-center gap-0.5"><Shield className="w-2.5 h-2.5" /> Admin</span>}
+                    {u.role === 'CREATOR' && <span className="text-black font-black flex items-center gap-0.5"><Video className="w-2.5 h-2.5" /> Criador</span>}
+                    {u.role === 'USER' && <span className="text-zinc-600">Usuário</span>}
                   </div>
                 </div>
               </button>
@@ -139,7 +139,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Nome Completo</label>
+              <label className="block text-xs font-black text-black mb-1">Nome Completo</label>
               <input
                 id="input-auth-name"
                 type="text"
@@ -147,13 +147,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 onChange={e => setName(e.target.value)}
                 placeholder="Seu nome"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                className="bento-input text-xs"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Email</label>
+            <label className="block text-xs font-black text-black mb-1">Email</label>
             <input
               id="input-auth-email"
               type="email"
@@ -161,22 +161,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               onChange={e => setEmail(e.target.value)}
               placeholder="exemplo@email.com"
               required
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+              className="bento-input text-xs"
             />
           </div>
 
           {mode === 'register' && (
             <>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Tipo de Perfil</label>
+                <label className="block text-xs font-black text-black mb-1.5">Tipo de Perfil</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setRole('USER')}
-                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border-2 border-black text-xs font-black transition-all ${
                       role === 'USER'
-                        ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        ? 'bg-[#FF6B00] text-black shadow-[2px_2px_0px_0px_#000]'
+                        : 'bg-white text-zinc-700 hover:bg-zinc-100'
                     }`}
                   >
                     <UserCheck className="w-4 h-4" />
@@ -185,10 +185,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                   <button
                     type="button"
                     onClick={() => setRole('CREATOR')}
-                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border-2 border-black text-xs font-black transition-all ${
                       role === 'CREATOR'
-                        ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        ? 'bg-[#FF6B00] text-black shadow-[2px_2px_0px_0px_#000]'
+                        : 'bg-white text-zinc-700 hover:bg-zinc-100'
                     }`}
                   >
                     <Video className="w-4 h-4" />
@@ -199,34 +199,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
               {role === 'CREATOR' && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Canal do YouTube / Portfólio</label>
+                  <label className="block text-xs font-black text-black mb-1">Canal do YouTube / Portfólio</label>
                   <input
                     id="input-auth-yt"
                     type="url"
                     value={youtubeChannelUrl}
                     onChange={e => setYoutubeChannelUrl(e.target.value)}
                     placeholder="https://youtube.com/@seucanal"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                    className="bento-input text-xs"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Biografia Curta (Opcional)</label>
+                <label className="block text-xs font-black text-black mb-1">Biografia Curta (Opcional)</label>
                 <textarea
                   id="input-auth-bio"
                   value={bio}
                   onChange={e => setBio(e.target.value)}
                   placeholder="Quais categorias de hardware ou tecnologia você mais consome?"
                   rows={2}
-                  className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                  className="bento-input text-xs"
                 />
               </div>
             </>
           )}
 
           {errorMessage && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium">
+            <div className="p-3 rounded-xl bg-rose-100 border-2 border-black text-black text-xs font-bold shadow-[2px_2px_0px_0px_#000]">
               {errorMessage}
             </div>
           )}
@@ -235,7 +235,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             id="btn-auth-submit"
             type="submit"
             disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm tracking-wide transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+            className="w-full bento-btn-lime py-3 px-4 text-xs font-black flex items-center justify-center gap-2"
           >
             {mode === 'login' ? (
               <>
@@ -251,14 +251,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
+        <div className="mt-6 pt-4 border-t-2 border-black text-center text-xs font-bold text-zinc-700">
           {mode === 'login' ? (
             <p>
               Ainda não tem conta?{' '}
               <button 
                 type="button" 
                 onClick={() => { setMode('register'); setErrorMessage(''); }}
-                className="text-cyan-400 hover:underline font-bold"
+                className="text-black underline hover:bg-[#FF6B00] px-1 rounded font-black"
               >
                 Cadastre-se gratuitamente
               </button>
@@ -269,7 +269,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               <button 
                 type="button" 
                 onClick={() => { setMode('login'); setErrorMessage(''); }}
-                className="text-cyan-400 hover:underline font-bold"
+                className="text-black underline hover:bg-[#FF6B00] px-1 rounded font-black"
               >
                 Entrar com email
               </button>

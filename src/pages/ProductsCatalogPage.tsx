@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Filter, Search, SlidersHorizontal, Grid, List, X, 
-  RotateCcw, Sparkles, AlertCircle 
+  Filter, Search, SlidersHorizontal, X, 
+  RotateCcw, AlertCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 import { apiService } from '../services/api.js';
@@ -34,7 +34,6 @@ export const ProductsCatalogPage: React.FC<ProductsCatalogPageProps> = ({
   const [sort, setSort] = useState(initialSort || 'cost_benefit');
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
-  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   useEffect(() => {
@@ -90,124 +89,95 @@ export const ProductsCatalogPage: React.FC<ProductsCatalogPageProps> = ({
   const hasActiveFilters = Boolean(search || selectedCategory || selectedBrand || selectedVerdict || minRating || maxPrice);
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-6 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-2 border-black pb-5">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-            <span>Catálogo de Produtos & Análises</span>
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-              {products.length} itens
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-black">
+              Catálogo de Produtos & Análises
+            </h1>
+            <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-[#FF6B00] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+              {products.length} itens auditados
             </span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Filtre por categoria, marca, faixa de preço, veredito "Vale a Pena" e nota técnica.
+          </div>
+          <p className="text-xs text-zinc-600 font-bold mt-1">
+            Fichas técnicas oficiais, notas transparentes e rastreamento de menor preço do mercado.
           </p>
         </div>
 
-        {/* Sort & Layout Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
-            <span className="text-slate-400 font-medium">Ordenar:</span>
+        <div className="flex items-center gap-3">
+          {/* Botão de Filtro Mobile */}
+          <button
+            onClick={() => setIsMobileFilterOpen(true)}
+            className="md:hidden flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-black shadow-[2px_2px_0px_0px_#000] text-xs font-black text-black"
+          >
+            <Filter className="w-4 h-4 text-black" />
+            <span>Filtros {hasActiveFilters && '(Ativos)'}</span>
+          </button>
+
+          {/* Ordenação */}
+          <div className="flex items-center gap-2 bg-white border-2 border-black shadow-[2px_2px_0px_0px_#000] px-3 py-1.5 rounded-xl">
+            <span className="text-xs text-zinc-700 font-black">Ordenar:</span>
             <select
-              id="select-sort-products"
               value={sort}
-              onChange={e => setSort(e.target.value)}
-              className="bg-transparent text-slate-100 font-bold focus:outline-none cursor-pointer"
+              onChange={(e) => setSort(e.target.value)}
+              className="bg-transparent text-xs font-black text-black focus:outline-none cursor-pointer"
             >
-              <option value="cost_benefit" className="bg-slate-900">Melhor Custo-Benefício</option>
-              <option value="best_rating" className="bg-slate-900">Mais Bem Avaliados</option>
-              <option value="price_asc" className="bg-slate-900">Menor Preço</option>
-              <option value="price_desc" className="bg-slate-900">Maior Preço</option>
-              <option value="reviews" className="bg-slate-900">Mais Reviews</option>
-              <option value="popular" className="bg-slate-900">Mais Populares</option>
+              <option value="cost_benefit">Melhor Custo-Benefício</option>
+              <option value="rating_desc">Maior Nota Técnica</option>
+              <option value="price_asc">Menor Preço</option>
+              <option value="price_desc">Maior Preço</option>
+              <option value="newest">Mais Recentes</option>
             </select>
           </div>
-
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1">
-            <button
-              id="btn-layout-grid"
-              onClick={() => setLayout('grid')}
-              className={`p-1.5 rounded-lg transition-colors ${layout === 'grid' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`}
-              title="Visualização em Grade"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-            <button
-              id="btn-layout-list"
-              onClick={() => setLayout('list')}
-              className={`p-1.5 rounded-lg transition-colors ${layout === 'list' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`}
-              title="Visualização em Lista"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-
-          <button
-            onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-            className="md:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-200"
-          >
-            <Filter className="w-4 h-4 text-cyan-400" />
-            <span>Filtros</span>
-          </button>
         </div>
       </div>
 
-      {/* Main Grid: Filters Sidebar (3 cols) + Products Grid (9 cols) */}
+      {/* Grid Principal: Sidebar Filtros + Listagem */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
         
-        {/* Filters Sidebar */}
-        <aside className={`md:col-span-3 space-y-6 bg-slate-900/80 md:bg-transparent p-5 md:p-0 rounded-3xl md:rounded-none border md:border-0 border-slate-800 ${isMobileFilterOpen ? 'block' : 'hidden md:block'}`}>
-          
-          {/* Quick Search */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-200 uppercase tracking-wider">Buscar por Texto</label>
+        {/* Sidebar de Filtros (Desktop) */}
+        <div className="hidden md:block md:col-span-3 space-y-5 bento-card p-5">
+          <div className="flex items-center justify-between border-b-2 border-black pb-3">
+            <div className="flex items-center gap-2 text-xs font-black text-black uppercase tracking-wider">
+              <SlidersHorizontal className="w-4 h-4 text-black" />
+              <span>Filtros de Busca</span>
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={handleResetFilters}
+                className="text-[11px] font-black text-black underline hover:bg-[#FF6B00] px-1 rounded flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Limpar
+              </button>
+            )}
+          </div>
+
+          {/* Busca por texto */}
+          <div>
+            <label className="block text-xs font-black text-black mb-1.5">Buscar por Nome</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Ex: RTX, Ryzen, SSD..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Ex: RTX 4070, Ryzen..."
+                className="bento-input pl-8"
               />
+              <Search className="w-3.5 h-3.5 text-black absolute left-3 top-3" />
             </div>
           </div>
 
-          {/* Veredito "Vale a Pena" Filter */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-200 uppercase tracking-wider">Veredito "Vale a Pena"</label>
-            <div className="space-y-1.5">
-              {[
-                { id: '', label: 'Todos os Vereditos' },
-                { id: 'RECOMENDADO', label: '🟢 Vale a Pena (Recomendado)' },
-                { id: 'DEPENDE', label: '🟡 Depende do Preço' },
-                { id: 'NAO_RECOMENDADO', label: '🔴 Não Recomendado' }
-              ].map(v => (
-                <button
-                  key={v.id}
-                  onClick={() => setSelectedVerdict(v.id)}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between ${
-                    selectedVerdict === v.id
-                      ? 'bg-cyan-500/10 border border-cyan-500/40 text-cyan-300 font-bold'
-                      : 'bg-slate-900/60 hover:bg-slate-900 text-slate-300 border border-slate-800/80'
-                  }`}
-                >
-                  <span>{v.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Categories Filter */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-200 uppercase tracking-wider">Categorias</label>
+          {/* Categorias */}
+          <div>
+            <label className="block text-xs font-black text-black mb-1.5">Categoria</label>
             <div className="space-y-1">
               <button
                 onClick={() => setSelectedCategory('')}
-                className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                  selectedCategory === '' ? 'bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/30' : 'text-slate-400 hover:text-slate-200'
+                className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                  !selectedCategory ? 'bg-[#FF6B00] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]' : 'text-zinc-700 hover:bg-zinc-100'
                 }`}
               >
                 Todas as Categorias
@@ -216,124 +186,160 @@ export const ProductsCatalogPage: React.FC<ProductsCatalogPageProps> = ({
                 <button
                   key={c.id}
                   onClick={() => setSelectedCategory(c.id)}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between ${
-                    selectedCategory === c.id ? 'bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/30' : 'text-slate-400 hover:text-slate-200'
+                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                    selectedCategory === c.id ? 'bg-[#FF6B00] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]' : 'text-zinc-700 hover:bg-zinc-100'
                   }`}
                 >
-                  <span>{c.name}</span>
-                  <span className="text-[10px] opacity-60">({c.productCount})</span>
+                  {c.name}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Brands Filter */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-200 uppercase tracking-wider">Marcas</label>
-            <div className="space-y-1">
-              <button
-                onClick={() => setSelectedBrand('')}
-                className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                  selectedBrand === '' ? 'bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/30' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Todas as Marcas
-              </button>
-              {brands.map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => setSelectedBrand(b.id)}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                    selectedBrand === b.id ? 'bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/30' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {b.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Reset Filters */}
-          {hasActiveFilters && (
-            <button
-              onClick={handleResetFilters}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors"
+          {/* Marcas */}
+          <div>
+            <label className="block text-xs font-black text-black mb-1.5">Marca</label>
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="bento-input"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Limpar Todos os Filtros</span>
-            </button>
-          )}
+              <option value="">Todas as Marcas</option>
+              {brands.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
 
-        </aside>
-
-        {/* Products Results List (9 cols) */}
-        <main className="md:col-span-9 space-y-4">
-          
-          {/* Active Filters Chips */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-slate-400">Filtros ativos:</span>
-              {search && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                  Busca: "{search}" <X className="w-3 h-3 cursor-pointer" onClick={() => setSearch('')} />
-                </span>
-              )}
-              {selectedCategory && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                  Categoria: {categories.find(c => c.id === selectedCategory)?.name} <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedCategory('')} />
-                </span>
-              )}
-              {selectedBrand && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                  Marca: {brands.find(b => b.id === selectedBrand)?.name} <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedBrand('')} />
-                </span>
-              )}
-              {selectedVerdict && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                  Veredito: {selectedVerdict} <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedVerdict('')} />
-                </span>
-              )}
+          {/* Veredito */}
+          <div>
+            <label className="block text-xs font-black text-black mb-1.5">Veredito do ReviewHub</label>
+            <div className="space-y-1.5">
+              {[
+                { label: 'Todos os vereditos', val: '' },
+                { label: '🟢 RECOMENDADO', val: 'RECOMENDADO' },
+                { label: '🟡 DEPENDE', val: 'DEPENDE' },
+                { label: '🔴 NÃO RECOMENDADO', val: 'NAO_RECOMENDADO' }
+              ].map(item => (
+                <label key={item.val} className="flex items-center gap-2 text-xs text-black font-bold cursor-pointer">
+                  <input
+                    type="radio"
+                    name="verdict"
+                    checked={selectedVerdict === item.val}
+                    onChange={() => setSelectedVerdict(item.val)}
+                    className="accent-black"
+                  />
+                  <span>{item.label}</span>
+                </label>
+              ))}
             </div>
-          )}
+          </div>
+        </div>
 
-          {/* Loading state */}
+        {/* Listagem de Produtos */}
+        <div className="md:col-span-9 space-y-6">
           {isLoading ? (
             <div className="py-20 text-center space-y-3">
-              <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-slate-400">Consultando produtos e reviews...</p>
+              <div className="w-10 h-10 border-4 border-black border-t-[#FF6B00] rounded-full animate-spin mx-auto" />
+              <p className="text-xs text-zinc-700 font-bold">Filtrando produtos com especificações verificadas...</p>
             </div>
           ) : products.length === 0 ? (
-            /* Empty state */
-            <div className="py-16 text-center space-y-4 p-8 rounded-3xl bg-slate-900 border border-slate-800">
-              <AlertCircle className="w-12 h-12 text-slate-500 mx-auto" />
-              <h3 className="text-base font-bold text-slate-200">Nenhum produto encontrado com os filtros selecionados</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Tente buscar por termos mais genéricos como "RTX", "Ryzen" ou limpe os filtros aplicados.
+            <div className="bento-card p-12 text-center space-y-4">
+              <AlertCircle className="w-12 h-12 text-black mx-auto" />
+              <h3 className="text-lg font-black text-black">Nenhum produto encontrado com estes filtros</h3>
+              <p className="text-xs text-zinc-600 font-semibold max-w-sm mx-auto">
+                Tente ajustar os critérios de categoria, marca ou termo de busca para visualizar os itens cadastrados.
               </p>
               <button
                 onClick={handleResetFilters}
-                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl"
+                className="bento-btn-lime text-xs px-4 py-2"
               >
-                Limpar Filtros
+                Limpar Todos os Filtros
               </button>
             </div>
           ) : (
-            /* Product List / Grid */
-            <div className={layout === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-3'}>
-              {products.map(prod => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {products.map(product => (
                 <ProductCard
-                  key={prod.id}
-                  product={prod}
-                  layout={layout}
+                  key={product.id}
+                  product={product}
                   onOpen={(slug) => setCurrentPage('product-detail', { slug })}
                 />
               ))}
             </div>
           )}
-
-        </main>
+        </div>
 
       </div>
+
+      {/* Drawer Mobile de Filtros */}
+      {isMobileFilterOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+          <div className="bg-white border-l-2 border-black w-full max-w-xs h-full p-6 space-y-6 overflow-y-auto">
+            <div className="flex items-center justify-between border-b-2 border-black pb-4">
+              <h3 className="text-base font-black text-black">Filtros de Busca</h3>
+              <button onClick={() => setIsMobileFilterOpen(false)} className="w-8 h-8 rounded-full border-2 border-black flex items-center justify-center font-bold">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Conteúdo dos filtros mobile */}
+            <div>
+              <label className="block text-xs font-black text-black mb-1.5">Buscar</label>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Ex: RTX 4070..."
+                className="bento-input"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-black mb-1.5">Categoria</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="bento-input"
+              >
+                <option value="">Todas</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-black mb-1.5">Marca</label>
+              <select
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
+                className="bento-input"
+              >
+                <option value="">Todas</option>
+                {brands.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="pt-4 border-t-2 border-black flex gap-2">
+              <button
+                onClick={handleResetFilters}
+                className="w-1/2 bento-btn-white text-xs"
+              >
+                Limpar
+              </button>
+              <button
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="w-1/2 bento-btn-lime text-xs"
+              >
+                Ver Resultados
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { RecommendationVerdict } from '../../types/index.js';
-import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react';
+import { ThumbsUp, AlertTriangle, ThumbsDown, HelpCircle } from 'lucide-react';
 
 interface VerdictBadgeProps {
   verdict: RecommendationVerdict;
@@ -17,50 +17,55 @@ export const VerdictBadge: React.FC<VerdictBadgeProps> = ({
     switch (verdict) {
       case 'RECOMENDADO':
         return {
-          label: 'VALE A PENA',
-          sub: 'Recomendado',
-          icon: CheckCircle2,
-          bgClass: 'bg-[#D4FF59] text-black border-2 border-black shadow-[2px_2px_0px_#000]',
+          label: 'RECOMENDADO',
+          sub: 'Vale a pena',
+          symbol: '🟠',
+          icon: ThumbsUp,
+          badgeClass: 'bg-[#FF6B00] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]',
           dotClass: 'bg-black'
         };
       case 'DEPENDE':
         return {
           label: 'DEPENDE',
           sub: 'Avalie o preço',
+          symbol: '🟡',
           icon: AlertTriangle,
-          bgClass: 'bg-amber-300 text-black border-2 border-black shadow-[2px_2px_0px_#000]',
+          badgeClass: 'bg-[#FEF08A] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]',
           dotClass: 'bg-black'
         };
       case 'NAO_RECOMENDADO':
         return {
-          label: 'NÃO VALE A PENA',
+          label: 'NÃO RECOMENDADO',
           sub: 'Evite ou aguarde',
-          icon: XCircle,
-          bgClass: 'bg-rose-400 text-black border-2 border-black shadow-[2px_2px_0px_#000]',
+          symbol: '🔴',
+          icon: ThumbsDown,
+          badgeClass: 'bg-[#FDA4AF] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]',
           dotClass: 'bg-black'
         };
       default:
         return {
           label: 'EM ANÁLISE',
           sub: 'Dados insuficientes',
+          symbol: '⚪',
           icon: HelpCircle,
-          bgClass: 'bg-zinc-200 text-black border-2 border-black shadow-[2px_2px_0px_#000]',
+          badgeClass: 'bg-zinc-200 text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]',
           dotClass: 'bg-black'
         };
     }
   };
 
   const config = getVerdictConfig();
-  const Icon = config.icon;
 
   if (size === 'sm') {
     return (
       <span 
         id={`verdict-badge-${verdict.toLowerCase()}-sm`}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${config.bgClass}`}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider ${config.badgeClass}`}
+        role="status"
+        aria-label={`Veredito: ${config.label}`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${config.dotClass}`} />
-        {showLabel ? config.label : null}
+        <span className="text-[12px]">{config.symbol}</span>
+        <span>{config.label}</span>
       </span>
     );
   }
@@ -69,12 +74,19 @@ export const VerdictBadge: React.FC<VerdictBadgeProps> = ({
     return (
       <div 
         id={`verdict-badge-${verdict.toLowerCase()}-lg`}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl ${config.bgClass}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${config.badgeClass}`}
+        role="status"
       >
-        <Icon className="w-6 h-6 shrink-0 text-black stroke-[2.5]" />
+        <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center text-lg shadow-[1px_1px_0px_0px_#fff]">
+          {config.symbol}
+        </div>
         <div>
-          <div className="font-black text-sm uppercase tracking-wide">{config.label}</div>
-          <div className="text-xs font-bold opacity-80">{config.sub}</div>
+          <div className="text-sm font-black tracking-wide uppercase">
+            {config.label}
+          </div>
+          <div className="text-xs text-black/80 font-bold">
+            {config.sub}
+          </div>
         </div>
       </div>
     );
@@ -83,11 +95,12 @@ export const VerdictBadge: React.FC<VerdictBadgeProps> = ({
   return (
     <span 
       id={`verdict-badge-${verdict.toLowerCase()}-md`}
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${config.bgClass}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider ${config.badgeClass}`}
+      role="status"
+      aria-label={`Veredito: ${config.label}`}
     >
-      <Icon className="w-4 h-4 shrink-0 stroke-[2.5]" />
-      <span>{config.label}</span>
+      <span className="text-xs">{config.symbol}</span>
+      <span>{showLabel ? config.label : config.sub}</span>
     </span>
   );
 };
-

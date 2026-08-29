@@ -67,6 +67,7 @@ export interface Product {
   imageUrl: string;
   galleryImages: string[];
   specs: Record<string, string>;
+  specificationsDetailed?: Record<string, SpecificationItem>;
   tags: string[];
   referencePrice: number;
   currentBestPrice: number;
@@ -252,6 +253,70 @@ export interface Badge {
   badgeLevel: string;
 }
 
+export interface SpecificationItem {
+  key: string;
+  label: string;
+  value: string;
+  source: string;
+  confidence: 'high' | 'medium' | 'low';
+  updatedAt: string;
+  categoryKey?: string;
+}
+
+export interface SpecificationSchemaField {
+  key: string;
+  label: string;
+  unit?: string;
+  description?: string;
+  importance: 'critical' | 'standard' | 'optional';
+  dataType: 'number' | 'string' | 'boolean';
+  higherIsBetter?: boolean;
+}
+
+export interface CategorySpecificationSchema {
+  categoryId: string;
+  categoryName: string;
+  fields: SpecificationSchemaField[];
+}
+
+export interface ProductSpecificationData {
+  items: Record<string, SpecificationItem>;
+  overallConfidence: number; // 0 to 100
+  lastVerifiedAt: string;
+  sourceSummary: string[];
+}
+
+export interface ComparisonWeights {
+  performanceWeight: number; // default 40%
+  priceWeight: number;       // default 25%
+  efficiencyWeight: number;  // default 15%
+  ratingWeight: number;      // default 10%
+  featuresWeight: number;    // default 10%
+}
+
+export interface ComparisonScoreBreakdown {
+  totalScore: number;
+  performanceScore: number;
+  priceScore: number;
+  efficiencyScore: number;
+  ratingScore: number;
+  featuresScore: number;
+}
+
+export interface ComparisonEvaluation {
+  winnerId: string | null;
+  winnerName: string | null;
+  verdictTitle: string;
+  explanation: string;
+  confidenceLevel: 'high' | 'medium' | 'low';
+  confidencePercentage: number;
+  dataCompleteness: number; // percentage
+  hasSufficientData: boolean;
+  scores: Record<string, ComparisonScoreBreakdown>;
+  highlights: Record<string, string[]>;
+  categorySpecificAdvantages: Record<string, string[]>;
+}
+
 export interface PlatformSettings {
   platformName: string;
   platformLogoText: string;
@@ -261,6 +326,7 @@ export interface PlatformSettings {
   minimumWithdrawalAmount?: number;
   autoApproveVerifiedCreators: boolean;
   featuredNotice?: string;
+  comparisonWeights?: ComparisonWeights;
 }
 
 export interface AdminLog {
@@ -308,4 +374,121 @@ export interface AdBanner {
   active: boolean;
   clickCount: number;
   impressionCount: number;
+}
+
+// ============================================================================
+// ETAPA 2 - PRICE ROBOT INTELLIGENT MONITORING & NORMALIZATION MODELS
+// ============================================================================
+
+export type PriceSourceStatus = 'active' | 'inactive' | 'rate_limited' | 'error';
+export type MatchQuality = 'exact' | 'high' | 'medium' | 'low';
+export type PriceTrend = 'falling' | 'stable' | 'rising';
+
+export interface PriceSource {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string;
+  baseUrl: string;
+  status: PriceSourceStatus;
+  reliabilityScore: number; // 0 to 100
+  lastSyncAt: string;
+  scrapeIntervalMinutes: number;
+  errorCount: number;
+  successCount: number;
+  parserType: 'html_scraper' | 'api_connector' | 'rss_catalog';
+}
+
+export interface PriceOffer {
+  id: string;
+  productId: string;
+  productName: string;
+  productModel?: string;
+  sourceId: string;
+  storeName: string;
+  storeLogo: string;
+  rawTitle: string;
+  price: number;
+  originalPrice?: number;
+  discountPercentage?: number;
+  currency: 'BRL';
+  inStock: boolean;
+  affiliateUrl: string;
+  couponCode?: string;
+  couponDiscountText?: string;
+  confidenceScore: number; // 0 to 100
+  matchQuality: MatchQuality;
+  isOutlier: boolean;
+  verifiedByRobot: boolean;
+  lastCheckedAt: string;
+  cashPrice?: number;
+  installmentText?: string;
+}
+
+export interface PriceHistoryPoint {
+  timestamp: string;
+  date: string;
+  price: number;
+  storeName: string;
+  sourceId?: string;
+  isLowestEver?: boolean;
+}
+
+export interface ProductPriceHistory {
+  productId: string;
+  productName: string;
+  currentLowestPrice: number;
+  lowest30Days: number;
+  lowest60Days: number;
+  lowest90Days: number;
+  highest90Days: number;
+  average90Days: number;
+  priceTrend: PriceTrend;
+  lastCheckedAt: string;
+  history: PriceHistoryPoint[];
+}
+
+export interface PriceSearchQuery {
+  id: string;
+  query: string;
+  category?: string;
+  brand?: string;
+  resultsCount: number;
+  createdAt: string;
+  cachedUntil: string;
+}
+
+export interface PriceRobotLog {
+  id: string;
+  executionType: 'scheduled' | 'manual' | 'ondemand';
+  sourceName: string;
+  productId?: string;
+  productName?: string;
+  status: 'success' | 'warning' | 'error';
+  offersFound: number;
+  durationMs: number;
+  message: string;
+  timestamp: string;
+  confidenceAverage: number;
+}
+
+export interface PriceRobotStats {
+  status: 'active' | 'idle' | 'running';
+  lastRunAt: string;
+  nextRunAt: string;
+  totalMonitoredProducts: number;
+  totalOffersTracked: number;
+  activeSourcesCount: number;
+  averageConfidence: number;
+  priceDropsDetectedToday: number;
+  scanIntervalHours: number;
+}
+
+export interface PriceRobotScanResult {
+  success: boolean;
+  scannedProductsCount: number;
+  totalOffersFound: number;
+  priceDropsFound: number;
+  durationMs: number;
+  logs: PriceRobotLog[];
 }

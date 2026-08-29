@@ -122,6 +122,89 @@
         "isSponsored": { "type": "boolean" }
       },
       "required": ["id", "productId", "storeName", "price", "affiliateUrl"]
+    },
+    "PriceSource": {
+      "title": "PriceSource",
+      "description": "Scraping & connector source configuration for price tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "baseUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "rate_limited", "error"] },
+        "reliabilityScore": { "type": "number" },
+        "lastSyncAt": { "type": "string" },
+        "scrapeIntervalMinutes": { "type": "number" },
+        "errorCount": { "type": "number" },
+        "successCount": { "type": "number" },
+        "parserType": { "type": "string" }
+      },
+      "required": ["id", "name", "slug", "status"]
+    },
+    "PriceOffer": {
+      "title": "PriceOffer",
+      "description": "Normalized and validated price offer from robot monitoring",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "productModel": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "storeLogo": { "type": "string" },
+        "rawTitle": { "type": "string" },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "discountPercentage": { "type": "number" },
+        "currency": { "type": "string" },
+        "inStock": { "type": "boolean" },
+        "affiliateUrl": { "type": "string" },
+        "couponCode": { "type": "string" },
+        "confidenceScore": { "type": "number" },
+        "matchQuality": { "type": "string", "enum": ["exact", "high", "medium", "low"] },
+        "isOutlier": { "type": "boolean" },
+        "verifiedByRobot": { "type": "boolean" },
+        "lastCheckedAt": { "type": "string" }
+      },
+      "required": ["id", "productId", "sourceId", "storeName", "price", "confidenceScore"]
+    },
+    "PriceHistory": {
+      "title": "PriceHistory",
+      "description": "Historical price tracking point for products",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "price": { "type": "number" },
+        "storeName": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "date": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "productId", "price", "date"]
+    },
+    "PriceLog": {
+      "title": "PriceLog",
+      "description": "Execution and audit log for Price Robot scans",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "executionType": { "type": "string" },
+        "sourceName": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "status": { "type": "string" },
+        "offersFound": { "type": "number" },
+        "durationMs": { "type": "number" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "confidenceAverage": { "type": "number" }
+      },
+      "required": ["id", "status", "timestamp"]
     }
   }
 }

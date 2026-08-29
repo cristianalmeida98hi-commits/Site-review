@@ -1,149 +1,442 @@
 @import "tailwindcss";
 
+:root {
+  --primary-neon-orange: #FF6B00;
+  --primary-neon-orange-hover: #FF8533;
+  --primary-neon-orange-dark: #E05300;
+  --primary-neon-orange-subtle: rgba(255, 107, 0, 0.18);
+
+  --primary-lime: #FF6B00;
+  --primary-lime-hover: #FF8533;
+  --primary-lime-dark: #E05300;
+  --primary-lime-subtle: rgba(255, 107, 0, 0.18);
+
+  --bg-canvas: #F0F1F3;
+  --bg-surface-white: #FFFFFF;
+  --bg-dark-card: #0D0F15;
+  --bg-dark-surface: #141721;
+  
+  --border-black: #000000;
+  --border-subtle: #E2E4E9;
+
+  --text-main: #000000;
+  --text-secondary: #27272A;
+  --text-muted: #52525B;
+
+  --shadow-solid: 4px 4px 0px 0px #000000;
+  --shadow-solid-sm: 2px 2px 0px 0px #000000;
+  --shadow-solid-lg: 6px 6px 0px 0px #000000;
+}
+
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
   body {
-    background-color: #F0F1F3;
-    color: #09090b;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--text-main);
+    font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-weight: 400;
+    overflow-x: hidden;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sora', 'Manrope', system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  /* Custom high-contrast scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #E5E7EB;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #000000;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #FF6B00;
   }
 }
 
-/* Bento Grid Design Theme Utilities */
+/* Typography Utility Classes */
+.font-heading {
+  font-family: 'Sora', system-ui, -apple-system, sans-serif;
+}
+
+.font-body {
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+}
+
+.font-price {
+  font-family: 'Sora', monospace;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ==========================================================================
+   BENTO GRID & EDITORIAL CARD SYSTEM (FLUORESCENT NEON ORANGE IDENTITY)
+   ========================================================================== */
+
+/* Main Bento Card (White background, thick black outline, solid black shadow) */
 .bento-card {
-  background: #ffffff;
+  background-color: #FFFFFF;
   border: 2px solid #000000;
-  border-radius: 24px;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 1);
+  border-radius: 20px;
+  box-shadow: 4px 4px 0px 0px #000000;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
 }
 
 .bento-card:hover {
-  box-shadow: 6px 6px 0px rgba(0, 0, 0, 1);
+  box-shadow: 6px 6px 0px 0px #000000;
   transform: translate(-1px, -1px);
 }
 
+/* Dark Bento Card */
 .bento-card-dark {
-  background: #18181b;
-  color: #ffffff;
+  background-color: #0E1017;
+  color: #FFFFFF;
   border: 2px solid #000000;
-  border-radius: 24px;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 1);
+  border-radius: 20px;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.bento-card-dark:hover {
+  box-shadow: 6px 6px 0px 0px #000000;
+  transform: translate(-1px, -1px);
+}
+
+/* Neon Orange Highlight Bento Card */
+.bento-card-lime,
+.bento-card-orange {
+  background-color: #FF6B00;
+  color: #000000;
+  border: 2px solid #000000;
+  border-radius: 20px;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.bento-card-lime:hover,
+.bento-card-orange:hover {
+  background-color: #FF8533;
+  box-shadow: 6px 6px 0px 0px #000000;
+  transform: translate(-1px, -1px);
+}
+
+/* Interactive Card Modifier */
+.bento-card-interactive {
+  cursor: pointer;
+}
+
+/* Compatibility aliases */
+.tech-card {
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+  border-radius: 20px;
+  box-shadow: 4px 4px 0px 0px #000000;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.bento-card-lime {
-  background: #D4FF59;
-  color: #000000;
-  border: 2px solid #000000;
-  border-radius: 24px;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 1);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+.tech-card:hover {
+  box-shadow: 6px 6px 0px 0px #000000;
+  transform: translate(-1px, -1px);
 }
+
+.tech-card-dark {
+  background-color: #0E1017;
+  color: #FFFFFF;
+  border: 2px solid #000000;
+  border-radius: 20px;
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.tech-card-static {
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+  border-radius: 20px;
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+/* ==========================================================================
+   BUTTONS (ORIGINAL EDITORIAL BENTO STYLE)
+   ========================================================================== */
 
 .bento-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
-  color: #000000;
-  border: 2px solid #000000;
-  border-radius: 9999px;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  padding: 8px 16px;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1);
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 14px;
+  border: 2px solid #000000;
+  box-shadow: 3px 3px 0px 0px #000000;
   transition: all 0.15s ease;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .bento-btn:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 1);
+  box-shadow: 4px 4px 0px 0px #000000;
 }
 
 .bento-btn:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px rgba(0, 0, 0, 1);
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
 }
 
-.bento-btn-lime {
-  background: #D4FF59;
+/* Neon Highlighter Orange Button */
+.bento-btn-lime,
+.bento-btn-orange,
+.btn-orange-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FF6B00;
   color: #000000;
-  border: 2px solid #000000;
-  border-radius: 9999px;
-  font-weight: 900;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  padding: 8px 16px;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1);
-  transition: all 0.15s ease;
-  cursor: pointer;
-}
-
-.bento-btn-lime:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 1);
-  background: #c5f53d;
-}
-
-.bento-btn-dark {
-  background: #000000;
-  color: #ffffff;
-  border: 2px solid #000000;
-  border-radius: 9999px;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  padding: 8px 16px;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1);
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 14px;
+  border: 2px solid #000000;
+  box-shadow: 3px 3px 0px 0px #000000;
   transition: all 0.15s ease;
   cursor: pointer;
+  min-height: 44px;
 }
 
-.bento-btn-dark:hover {
+.bento-btn-lime:hover,
+.bento-btn-orange:hover,
+.btn-orange-primary:hover {
+  background-color: #FF8533;
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 1);
-  background: #18181b;
+  box-shadow: 4px 4px 0px 0px #000000;
 }
+
+.bento-btn-lime:active,
+.bento-btn-orange:active,
+.btn-orange-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+/* Black Button */
+.bento-btn-dark,
+.btn-dark-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000000;
+  color: #FFFFFF;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 14px;
+  border: 2px solid #000000;
+  box-shadow: 3px 3px 0px 0px #000000;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.bento-btn-dark:hover,
+.btn-dark-secondary:hover {
+  background-color: #1F242F;
+  color: #FFFFFF;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.bento-btn-dark:active,
+.btn-dark-secondary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+/* Outline White Button */
+.bento-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FFFFFF;
+  color: #000000;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 14px;
+  border: 2px solid #000000;
+  box-shadow: 3px 3px 0px 0px #000000;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.bento-btn-outline:hover {
+  background-color: #F3F4F6;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.bento-btn-outline:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+/* ==========================================================================
+   INPUTS & FORMS
+   ========================================================================== */
+
+.bento-input,
+.tech-input {
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+  color: #000000;
+  border-radius: 14px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  box-shadow: 2px 2px 0px 0px #000000;
+  width: 100%;
+}
+
+.bento-input::placeholder,
+.tech-input::placeholder {
+  color: #6B7280;
+  font-weight: 500;
+}
+
+.bento-input:focus,
+.tech-input:focus {
+  outline: none;
+  border-color: #000000;
+  background-color: #FFFFFF;
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+/* ==========================================================================
+   PILLS, BADGES & TAGS
+   ========================================================================== */
 
 .bento-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background-color: #FF6B00;
+  color: #000000;
   border: 2px solid #000000;
+  padding: 0.25rem 0.75rem;
   border-radius: 9999px;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
-  font-size: 11px;
-  padding: 4px 12px;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1);
+  letter-spacing: 0.05em;
+  box-shadow: 2px 2px 0px 0px #000000;
 }
 
 .bento-tag {
-  border: 1.5px solid #000000;
-  border-radius: 8px;
-  font-weight: 800;
-  font-size: 10px;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  background: #f4f4f5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: #FFFFFF;
   color: #000000;
+  border: 2px solid #000000;
+  padding: 0.25rem 0.625rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0px 0px #000000;
 }
 
-.stat-number {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  letter-spacing: -0.05em;
-  font-weight: 900;
+.bento-tag-lime,
+.bento-tag-orange {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: #FF6B00;
+  color: #000000;
+  border: 2px solid #000000;
+  padding: 0.25rem 0.625rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0px 0px #000000;
 }
 
-.client-logo {
-  filter: grayscale(100%);
-  opacity: 0.35;
-  transition: all 0.2s ease;
+.tech-badge-orange,
+.tech-badge-lime {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background-color: #FF6B00;
+  color: #000000;
+  border: 2px solid #000000;
+  padding: 0.25rem 0.625rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0px 0px #000000;
 }
 
-.client-logo:hover {
-  filter: grayscale(0%);
-  opacity: 1;
+/* Circular icon action button */
+.bento-circle-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  box-shadow: 2px 2px 0px 0px #000000;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.bento-circle-btn:hover {
+  background-color: #FF6B00;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px 0px #000000;
+}
+
+.bento-circle-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+/* ==========================================================================
+   BENTO GRID HELPERS
+   ========================================================================== */
+
+.bento-grid-12 {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .bento-grid-12 {
+    grid-template-columns: 1fr;
+  }
 }

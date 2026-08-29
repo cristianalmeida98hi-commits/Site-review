@@ -89,5 +89,31 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true;
     }
+
+    // Price Robot Collections
+    match /priceSources/{sourceId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /priceOffers/{offerId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /priceHistory/{historyId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /priceLogs/{logId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /priceSearches/{searchId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

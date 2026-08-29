@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Scale, ArrowRight, TrendingDown, Eye } from 'lucide-react';
+import { Heart, Scale, ArrowRight, TrendingDown } from 'lucide-react';
 import type { Product } from '../../types/index.js';
 import { ScoreBadge } from './ScoreBadge.js';
 import { VerdictBadge } from './VerdictBadge.js';
@@ -28,12 +28,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return (
       <div 
         id={`product-card-${product.slug}`}
-        className="group relative flex flex-col md:flex-row items-center gap-5 p-5 rounded-[24px] bg-white border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200"
+        className="group relative flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:shadow-[6px_6px_0px_0px_#000] transition-all duration-200"
       >
         {/* Thumbnail */}
         <div 
           onClick={() => onOpen(product.slug)}
-          className="relative w-full md:w-48 h-36 rounded-2xl overflow-hidden bg-zinc-50 border-2 border-black/10 shrink-0 cursor-pointer flex items-center justify-center p-2"
+          className="relative w-full sm:w-44 h-36 rounded-xl overflow-hidden bg-white border-2 border-black shrink-0 cursor-pointer flex items-center justify-center p-3 shadow-[2px_2px_0px_0px_#000]"
         >
           <img 
             src={product.imageUrl} 
@@ -42,92 +42,59 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             loading="lazy"
           />
           {discountPercent > 0 && (
-            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] flex items-center gap-1 border border-black shadow-[1.5px_1.5px_0px_#000]">
+            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[11px] border border-black flex items-center gap-1 shadow-[1px_1px_0px_0px_#000]">
               <TrendingDown className="w-3 h-3" /> -{discountPercent}%
             </span>
           )}
         </div>
 
-        {/* Info */}
+        {/* Informações Principais */}
         <div className="flex-1 min-w-0 space-y-2 w-full">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-black uppercase text-black bg-[#D4FF59] px-2.5 py-0.5 rounded-full border border-black shadow-[1px_1px_0px_#000]">
+            <span className="text-[11px] font-black text-black bg-[#FF6B00] px-2.5 py-0.5 rounded-md border-2 border-black uppercase tracking-wider">
               {product.categoryName}
             </span>
-            <span className="text-xs font-bold text-zinc-500 uppercase">{product.brandName}</span>
-            {product.isSponsored && (
-              <span className="text-[10px] font-black uppercase text-black bg-amber-300 px-2 py-0.5 rounded-full border border-black">
-                {product.sponsoredTag || 'Patrocinado'}
-              </span>
-            )}
+            <span className="text-xs font-black text-zinc-500 uppercase">{product.brandName}</span>
           </div>
 
           <h3 
             onClick={() => onOpen(product.slug)}
-            className="font-black text-base text-black group-hover:text-zinc-700 transition-colors cursor-pointer line-clamp-1"
+            className="font-black text-base text-black group-hover:text-zinc-800 transition-colors cursor-pointer line-clamp-1"
           >
             {product.name}
           </h3>
 
-          <p className="text-xs text-zinc-600 line-clamp-2 leading-relaxed">
-            {product.description}
-          </p>
-
-          <div className="flex items-center gap-2.5 pt-1 flex-wrap">
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
             <ScoreBadge score={product.ratingOverall} size="sm" />
             <VerdictBadge verdict={product.recommendationVerdict} size="sm" />
-            <span className="text-[11px] font-bold text-zinc-500 hidden sm:inline-flex items-center gap-1">
-              <Eye className="w-3 h-3" /> {product.viewsCount.toLocaleString()} views
-            </span>
           </div>
         </div>
 
-        {/* Pricing & Actions */}
-        <div className="flex md:flex-col items-center md:items-end justify-between w-full md:w-48 shrink-0 pt-3 md:pt-0 border-t-2 md:border-t-0 border-black/10 gap-2">
-          <div className="text-left md:text-right">
-            <div className="text-[10px] font-bold uppercase text-zinc-500">A partir de</div>
-            <div className="text-lg font-black text-black stat-number">
-              {product.currentBestPrice > 0 ? `R$ ${product.currentBestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Ver lojas'}
+        {/* Preço e Botão */}
+        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-48 shrink-0 pt-3 sm:pt-0 border-t-2 sm:border-t-0 border-black gap-2">
+          <div className="text-left sm:text-right">
+            <div className="text-[10px] font-black text-zinc-500 uppercase">Melhor Preço</div>
+            <div className="text-xl font-black text-black font-mono">
+              {product.currentBestPrice > 0 ? `R$ ${product.currentBestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sob consulta'}
             </div>
-            {product.referencePrice > product.currentBestPrice && (
-              <div className="text-[10px] text-zinc-400 line-through font-bold">
-                Ref: R$ {product.referencePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </div>
-            )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
-              id={`btn-card-fav-${product.id}`}
+              id={`fav-btn-list-${product.id}`}
               onClick={(e) => { e.stopPropagation(); toggleFavorite(product.id); }}
-              title="Favoritar"
-              className={`p-2 rounded-full border-2 border-black transition-colors ${
-                favorited 
-                  ? 'bg-rose-100 text-rose-600 shadow-[2px_2px_0px_#000]' 
-                  : 'bg-white text-black shadow-[2px_2px_0px_#000] hover:bg-zinc-100'
-              }`}
+              aria-label={favorited ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              className={`p-2.5 rounded-xl border-2 border-black transition-all min-h-[42px] min-w-[42px] flex items-center justify-center shadow-[2px_2px_0px_0px_#000] ${favorited ? 'bg-rose-400 text-black' : 'bg-white text-black hover:bg-zinc-100'}`}
             >
-              <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
+              <Heart className={`w-4 h-4 ${favorited ? 'fill-black' : ''}`} />
             </button>
             <button
-              id={`btn-card-comp-${product.id}`}
-              onClick={(e) => { e.stopPropagation(); addToCompare(product); }}
-              title="Comparar com outro produto"
-              className={`p-2 rounded-full border-2 border-black transition-colors ${
-                isCompared 
-                  ? 'bg-[#D4FF59] text-black shadow-[2px_2px_0px_#000]' 
-                  : 'bg-white text-black shadow-[2px_2px_0px_#000] hover:bg-zinc-100'
-              }`}
-            >
-              <Scale className="w-4 h-4" />
-            </button>
-            <button
-              id={`btn-card-open-${product.id}`}
+              id={`open-product-list-${product.id}`}
               onClick={() => onOpen(product.slug)}
-              className="flex items-center gap-1 px-3.5 py-2 rounded-full bg-[#D4FF59] hover:bg-[#c5f53d] text-black font-black uppercase text-xs border-2 border-black shadow-[2px_2px_0px_#000] transition-all"
+              className="flex-1 sm:flex-none bento-btn-lime text-xs px-3.5 py-2"
             >
-              <span>Ver Análise</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Ver produto</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </button>
           </div>
         </div>
@@ -135,103 +102,107 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     );
   }
 
-  // Grid Layout - Bento Grid Card
+  // Grid Layout - Bento Editorial
   return (
     <div 
       id={`product-card-${product.slug}`}
-      className="group relative flex flex-col justify-between rounded-[24px] bg-white border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 p-4 transition-all duration-200"
+      className="group relative flex flex-col rounded-2xl bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:shadow-[6px_6px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
     >
-      {/* Top Floating Actions & Tags */}
-      <div className="flex items-center justify-between gap-2 mb-2 z-10">
-        <span className="text-[10px] font-black uppercase text-black bg-[#D4FF59] px-2.5 py-0.5 rounded-full border border-black shadow-[1px_1px_0px_#000]">
-          {product.categoryName}
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            id={`btn-grid-fav-${product.id}`}
-            onClick={(e) => { e.stopPropagation(); toggleFavorite(product.id); }}
-            title="Favoritar"
-            className={`p-1.5 rounded-full border-2 border-black transition-colors ${
-              favorited 
-                ? 'bg-rose-100 text-rose-600 shadow-[1.5px_1.5px_0px_#000]' 
-                : 'bg-white text-black shadow-[1.5px_1.5px_0px_#000] hover:bg-zinc-100'
-            }`}
-          >
-            <Heart className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
-          </button>
-          <button
-            id={`btn-grid-comp-${product.id}`}
-            onClick={(e) => { e.stopPropagation(); addToCompare(product); }}
-            title="Comparar"
-            className={`p-1.5 rounded-full border-2 border-black transition-colors ${
-              isCompared 
-                ? 'bg-[#D4FF59] text-black shadow-[1.5px_1.5px_0px_#000]' 
-                : 'bg-white text-black shadow-[1.5px_1.5px_0px_#000] hover:bg-zinc-100'
-            }`}
-          >
-            <Scale className="w-3.5 h-3.5" />
-          </button>
-        </div>
+      {/* Botões Rápidos de Ação no Topo */}
+      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
+        <button
+          id={`btn-compare-${product.id}`}
+          onClick={(e) => { e.stopPropagation(); addToCompare(product); }}
+          title={isCompared ? 'No comparador' : 'Adicionar ao comparador'}
+          aria-label={isCompared ? 'No comparador' : 'Adicionar ao comparador'}
+          className={`p-2 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000] transition-all min-h-[38px] min-w-[38px] flex items-center justify-center ${
+            isCompared 
+              ? 'bg-[#FF6B00] text-black font-black' 
+              : 'bg-white hover:bg-[#FF6B00] text-black'
+          }`}
+        >
+          <Scale className="w-4 h-4" />
+        </button>
+        <button
+          id={`btn-fav-${product.id}`}
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(product.id); }}
+          title={favorited ? 'Remover dos favoritos' : 'Favoritar'}
+          aria-label={favorited ? 'Remover dos favoritos' : 'Favoritar'}
+          className={`p-2 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000] transition-all min-h-[38px] min-w-[38px] flex items-center justify-center ${
+            favorited 
+              ? 'bg-rose-400 text-black' 
+              : 'bg-white hover:bg-rose-100 text-black'
+          }`}
+        >
+          <Heart className={`w-4 h-4 ${favorited ? 'fill-black' : ''}`} />
+        </button>
       </div>
 
-      {/* Product Image */}
+      {/* Imagem do Produto */}
       <div 
         onClick={() => onOpen(product.slug)}
-        className="relative w-full h-44 rounded-2xl overflow-hidden bg-zinc-50 border-2 border-black/10 flex items-center justify-center p-3 mb-3 cursor-pointer"
+        className="relative w-full h-48 bg-white cursor-pointer flex items-center justify-center p-4 border-b-2 border-black"
       >
         <img 
           src={product.imageUrl} 
           alt={product.name}
-          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
         />
         {discountPercent > 0 && (
-          <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] flex items-center gap-1 border border-black shadow-[1.5px_1.5px_0px_#000]">
+          <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[11px] border border-black flex items-center gap-1 shadow-[2px_2px_0px_0px_#000]">
             <TrendingDown className="w-3 h-3" /> -{discountPercent}%
           </span>
         )}
       </div>
 
-      {/* Content */}
-      <div className="space-y-2 mb-3">
-        <div className="text-[10px] font-black uppercase tracking-wider text-zinc-500">{product.brandName}</div>
-        <h3 
-          onClick={() => onOpen(product.slug)}
-          className="font-black text-sm text-black group-hover:text-zinc-700 transition-colors line-clamp-2 cursor-pointer leading-snug"
-        >
-          {product.name}
-        </h3>
+      {/* Conteúdo do Card */}
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-black uppercase tracking-wider bg-[#FF6B00] px-2 py-0.5 rounded-md border-2 border-black">
+              {product.categoryName}
+            </span>
+            <span className="text-xs font-black text-zinc-500 uppercase">
+              {product.brandName}
+            </span>
+          </div>
 
-        <div className="flex items-center justify-between gap-1.5 pt-1">
+          <h3 
+            onClick={() => onOpen(product.slug)}
+            className="font-black text-sm text-black group-hover:text-zinc-800 transition-colors cursor-pointer line-clamp-2 leading-snug"
+          >
+            {product.name}
+          </h3>
+        </div>
+
+        {/* Nota e Veredito */}
+        <div className="flex items-center justify-between gap-2 pt-1">
           <ScoreBadge score={product.ratingOverall} size="sm" />
           <VerdictBadge verdict={product.recommendationVerdict} size="sm" />
         </div>
-      </div>
 
-      {/* Price & Action */}
-      <div className="pt-3 border-t-2 border-black/10 mt-auto">
-        <div className="flex items-end justify-between gap-2 mb-2.5">
+        {/* Preço e Botão de Ação */}
+        <div className="pt-3 border-t-2 border-black flex items-center justify-between gap-2">
           <div>
-            <div className="text-[9px] font-bold uppercase text-zinc-500">A partir de</div>
-            <div className="text-base font-black text-black stat-number">
-              {product.currentBestPrice > 0 ? `R$ ${product.currentBestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sob Consulta'}
+            <div className="text-[10px] font-black text-zinc-500 uppercase">A partir de</div>
+            <div className="text-lg font-black text-black font-mono">
+              {product.currentBestPrice > 0 
+                ? `R$ ${product.currentBestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                : 'Sob consulta'
+              }
             </div>
           </div>
-          {product.referencePrice > product.currentBestPrice && (
-            <div className="text-[10px] text-zinc-400 line-through font-bold">
-              R$ {product.referencePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-          )}
-        </div>
 
-        <button
-          id={`btn-grid-open-${product.id}`}
-          onClick={() => onOpen(product.slug)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-black hover:bg-zinc-800 text-[#D4FF59] font-black uppercase text-xs border-2 border-black shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_#000] transition-all"
-        >
-          <span>Ver Análise e Ofertas</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+          <button
+            id={`btn-open-card-${product.id}`}
+            onClick={() => onOpen(product.slug)}
+            className="bento-btn-lime text-xs px-3.5 py-2"
+          >
+            <span>Ver</span>
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </button>
+        </div>
       </div>
     </div>
   );

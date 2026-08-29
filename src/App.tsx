@@ -69,9 +69,9 @@ const MainRouter: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F1F3] text-zinc-950 flex flex-col font-sans selection:bg-[#D4FF59] selection:text-black">
+    <div className="min-h-screen bg-[#F0F1F3] text-black flex flex-col font-sans selection:bg-[#FF6B00] selection:text-black">
       <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16">
         {renderCurrentPage()}
       </main>
       <Footer />

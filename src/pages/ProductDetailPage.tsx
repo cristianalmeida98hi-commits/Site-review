@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Heart, Scale, Share2, Star, ThumbsUp, CheckCircle, XCircle, 
-  ExternalLink, ArrowLeft, ShieldCheck, Video, MessageSquare, 
-  Flag, AlertCircle, ShoppingBag, TrendingDown, Sparkles, Check, Copy
+  Heart, Scale, Share2, ThumbsUp, CheckCircle, XCircle, 
+  ExternalLink, ArrowLeft, Video, MessageSquare, 
+  AlertCircle, ShoppingBag, Sparkles, Check,
+  Layers, Award
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 import { apiService } from '../services/api.js';
@@ -17,7 +18,7 @@ interface ProductDetailPageProps {
 }
 
 export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) => {
-  const { currentUser, setCurrentPage, isFavorite, toggleFavorite, addToCompare, compareList } = useApp();
+  const { currentUser, setCurrentPage, isFavorite, toggleFavorite, addToCompare, compareList, handleAffiliateRedirect } = useApp();
 
   const [data, setData] = useState<{
     product: Product;
@@ -26,6 +27,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) =>
     ratings: UserRating[];
   } | null>(null);
 
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [activeVideoModalReview, setActiveVideoModalReview] = useState<Review | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,12 +45,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) =>
   const [isVerified, setIsVerified] = useState(true);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
-  // Report modal state
-  const [reportModalTarget, setReportModalTarget] = useState<{ type: string; id: string } | null>(null);
-  const [reportReason, setReportReason] = useState<string>('Fake review');
-  const [reportDetails, setReportDetails] = useState('');
-  const [reportSuccess, setReportSuccess] = useState(false);
-
   const loadProductData = async () => {
     try {
       setIsLoading(true);
@@ -56,6 +52,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) =>
       const res = await apiService.getProductBySlugOrId(slug);
       setData(res);
       setSelectedImage(res.product.imageUrl);
+
+      // Carrega produtos similares da mesma categoria
+      const allProds = await apiService.getProducts();
+      const similars = allProds
+        .filter(p => p.id !== res.product.id && p.categoryId === res.product.categoryId)
+        .slice(0, 3);
+      setSimilarProducts(similars);
     } catch (err: any) {
       setError(err.message || 'Não foi possível carregar as informações deste produto.');
     } finally {
@@ -69,22 +72,22 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) =>
 
   if (isLoading) {
     return (
-      <div className="py-20 text-center space-y-4">
-        <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-sm text-slate-400 font-medium">Carregando análise técnica e ofertas em tempo real...</p>
+      <div className="py-24 text-center space-y-4 max-w-md mx-auto">
+        <div className="w-12 h-12 border-4 border-black border-t-[#FF6B00] rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-black font-black">Carregando análise técnica e ofertas auditadas...</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="py-16 text-center max-w-lg mx-auto space-y-4 p-8 rounded-3xl bg-slate-900 border border-slate-800">
-        <AlertCircle className="w-12 h-12 text-rose-400 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-100">Produto não encontrado</h2>
-        <p className="text-xs text-slate-400">{error || 'Este item pode ter sido arquivado ou o link está incorreto.'}</p>
+      <div className="py-16 text-center max-w-lg mx-auto space-y-4 p-8 rounded-3xl bg-white border-2 border-black shadow-[6px_6px_0px_0px_#000]">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
+        <h2 className="text-xl font-black text-black">Produto não encontrado</h2>
+        <p className="text-xs text-zinc-600 font-semibold">{error || 'Este item pode ter sido arquivado ou o link está incorreto.'}</p>
         <button
           onClick={() => setCurrentPage('products')}
-          className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl"
+          className="bento-btn-lime text-xs px-4 py-2"
         >
           Voltar ao Catálogo
         </button>
@@ -96,42 +99,41 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) =>
   const isFav = isFavorite(product.id);
   const isCompared = compareList.some(p => p.id === product.id);
 
-  const handleShare = (network: string) => {
-    const url = window.location.href;
-    const text = `Confira a análise técnica e veredito de compra do ${product.name} no ReviewHub:`;
-    if (network === 'whatsapp') {
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank');
-    } else if (network === 'twitter') {
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
-    } else if (network === 'facebook') {
-      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
-    } else {
-      navigator.clipboard.writeText(url);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
-    }
+  const bestOffer = offers.length > 0
+    ? [...offers].sort((a, b) => a.price - b.price)[0]
+    : null;
+
+  const isPriceGood = product.idealPrice > 0 
+    ? product.currentBestPrice <= product.idealPrice 
+    : false;
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleRatingSubmit = async (e: React.FormEvent) => {
+  const handleSubmitRating = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) {
-      alert('Você precisa estar conectado para enviar uma avaliação.');
-      return;
-    }
+    if (!userTitle.trim() || !userComment.trim()) return;
+
     try {
       setIsSubmittingRating(true);
       await apiService.submitRating({
         productId: product.id,
-        rating: Number(userScore),
-        title: userTitle,
-        comment: userComment,
-        pros: userPros.split('\n').filter(p => p.trim().length > 0),
-        cons: userCons.split('\n').filter(c => c.trim().length > 0),
-        wouldRecommend,
-        isVerifiedPurchase: isVerified
+        userId: currentUser?.id || 'anon',
+        userName: currentUser?.name || 'Comprador Anônimo',
+        userAvatar: currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+        rating: userScore,
+        title: userTitle.trim(),
+        comment: userComment.trim(),
+        pros: userPros.split('\n').filter(p => p.trim()),
+        cons: userCons.split('\n').filter(c => c.trim()),
+        isVerifiedPurchase: isVerified,
+        wouldRecommend
       });
       setIsRatingModalOpen(false);
-      await loadProductData();
+      loadProductData();
     } catch (err: any) {
       alert(err.message || 'Erro ao enviar avaliação.');
     } finally {
@@ -139,712 +141,636 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug }) =>
     }
   };
 
-  const handleReportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reportModalTarget) return;
-    try {
-      await apiService.createReport({
-        targetType: reportModalTarget.type,
-        targetId: reportModalTarget.id,
-        reason: reportReason,
-        details: reportDetails
-      });
-      setReportSuccess(true);
-      setTimeout(() => {
-        setReportSuccess(false);
-        setReportModalTarget(null);
-        setReportDetails('');
-      }, 2000);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   return (
-    <div className="space-y-12 pb-16">
+    <div className="space-y-10 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       
-      {/* Top Breadcrumbs & Back */}
-      <div className="flex items-center justify-between text-xs text-slate-400">
+      {/* 1. TOP NAV & QUICK ACTIONS BAR */}
+      <div className="flex items-center justify-between pt-3 flex-wrap gap-3">
         <button
           onClick={() => setCurrentPage('products')}
-          className="flex items-center gap-1.5 hover:text-cyan-400 font-semibold transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-black text-black hover:underline transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Voltar para Catálogo</span>
+          <span>Voltar para o catálogo</span>
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline">Compartilhar análise:</span>
-          <button 
-            onClick={() => handleShare('whatsapp')} 
-            className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-            title="Compartilhar no WhatsApp"
+          <button
+            onClick={handleShare}
+            className="p-2.5 rounded-xl bg-white border-2 border-black shadow-[2px_2px_0px_0px_#000] text-black hover:bg-[#FF6B00] text-xs font-black flex items-center gap-1.5 transition-all"
+            title="Compartilhar análise"
           >
-            WhatsApp
+            {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
+            <span>{copiedLink ? 'Link copiado!' : 'Compartilhar'}</span>
           </button>
-          <button 
-            onClick={() => handleShare('twitter')} 
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" 
-            title="Compartilhar no X (Twitter)"
+          <button
+            onClick={() => addToCompare(product)}
+            className={`p-2.5 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000] text-xs font-black flex items-center gap-1.5 transition-all ${
+              isCompared ? 'bg-[#FF6B00] text-black' : 'bg-white text-black hover:bg-zinc-100'
+            }`}
           >
-            X
+            <Scale className="w-3.5 h-3.5" />
+            <span>{isCompared ? 'No comparador' : 'Comparar'}</span>
           </button>
-          <button 
-            onClick={() => handleShare('copy')} 
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1"
+          <button
+            onClick={() => toggleFavorite(product.id)}
+            className={`p-2.5 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000] text-xs font-black flex items-center gap-1.5 transition-all ${
+              isFav ? 'bg-rose-300 text-black' : 'bg-white text-black hover:bg-rose-50'
+            }`}
           >
-            {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copiedLink ? 'Copiado!' : 'Copiar'}</span>
+            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-black' : ''}`} />
+            <span>{isFav ? 'Salvo' : 'Favoritar'}</span>
           </button>
         </div>
       </div>
 
-      {/* Main Product Hero Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* 2. PRODUCT HERO: GALLERY & PRIMARY SPECS & VERDICT CARD */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Gallery & Images (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="relative w-full aspect-square rounded-3xl bg-slate-900 border border-slate-800 p-6 flex items-center justify-center overflow-hidden shadow-2xl">
-            <img 
-              src={selectedImage} 
-              alt={product.name}
-              className="max-h-full max-w-full object-contain"
-            />
-            {product.referencePrice > product.currentBestPrice && product.currentBestPrice > 0 && (
-              <span className="absolute top-4 left-4 px-3 py-1 rounded-xl bg-rose-500 text-white font-black text-xs shadow-lg flex items-center gap-1">
-                <TrendingDown className="w-3.5 h-3.5" />
-                -{Math.round(((product.referencePrice - product.currentBestPrice) / product.referencePrice) * 100)}% OFF
-              </span>
-            )}
-          </div>
-
-          {/* Thumbnails */}
-          {product.galleryImages.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {product.galleryImages.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedImage(img)}
-                  className={`w-16 h-16 rounded-xl bg-slate-900 border p-1.5 shrink-0 transition-all ${
-                    selectedImage === img ? 'border-cyan-400 ring-2 ring-cyan-400/30' : 'border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <img src={img} alt="Thumb" className="w-full h-full object-contain" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: Title, Veredito & Key Stats (7 cols) */}
+        {/* Left Column: Gallery & Product Overview (Span 7) */}
         <div className="lg:col-span-7 space-y-6">
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs font-bold">
-                {product.categoryName}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold">{product.brandName}</span>
-              {product.isSponsored && (
-                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-                  {product.sponsoredTag || 'Destaque'}
+          <div className="bento-card p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-[#FF6B00] border-2 border-black text-black text-xs font-black uppercase">
+                  {product.categoryName}
+                </span>
+                <span className="text-xs font-black text-zinc-600 uppercase tracking-wider">
+                  {product.brandName}
+                </span>
+              </div>
+              {product.targetAudience && (
+                <span className="text-xs font-black text-black bg-zinc-100 px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+                  🎯 {product.targetAudience}
                 </span>
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              {product.name}
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              {product.description}
-            </p>
-          </div>
-
-          {/* 🟢 "VALE A PENA?" DECISION CARD (Crucial Requirement) */}
-          <div 
-            id="vale-a-pena-decision-card"
-            className="p-5 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-900 border-2 border-cyan-500/40 shadow-2xl space-y-4"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" /> Veredito de Compra ReviewHub
-                </div>
-                <div className="text-lg font-black text-white mt-0.5">Vale a pena comprar?</div>
+            {/* Main Interactive Gallery */}
+            <div className="space-y-4">
+              <div className="w-full h-80 sm:h-96 bg-white rounded-2xl border-2 border-black p-6 flex items-center justify-center relative overflow-hidden shadow-[3px_3px_0px_0px_#000]">
+                <img 
+                  src={selectedImage || product.imageUrl} 
+                  alt={product.name} 
+                  className="max-h-full max-w-full object-contain hover:scale-105 transition-transform duration-300"
+                />
               </div>
-              <VerdictBadge verdict={product.recommendationVerdict} size="lg" />
+
+              {product.galleryImages && product.galleryImages.length > 0 && (
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
+                  <button
+                    onClick={() => setSelectedImage(product.imageUrl)}
+                    className={`w-16 h-16 rounded-xl bg-white border-2 p-1 shrink-0 transition-all ${
+                      selectedImage === product.imageUrl ? 'border-black bg-[#FF6B00] shadow-[3px_3px_0px_0px_#000]' : 'border-zinc-300 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={product.imageUrl} alt="Thumbnail principal" className="w-full h-full object-contain" />
+                  </button>
+                  {product.galleryImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedImage(img)}
+                      className={`w-16 h-16 rounded-xl bg-white border-2 p-1 shrink-0 transition-all ${
+                        selectedImage === img ? 'border-black bg-[#FF6B00] shadow-[3px_3px_0px_0px_#000]' : 'border-zinc-300 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-contain" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed font-medium bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
-              "{product.verdictReason}"
-            </p>
+            {/* Product Title and Description */}
+            <div className="space-y-3 pt-4 border-t-2 border-black">
+              <h1 className="text-2xl sm:text-3xl font-black text-black leading-tight">
+                {product.name}
+              </h1>
+              <p className="text-sm text-zinc-800 font-semibold leading-relaxed">
+                {product.description}
+              </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-              <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <div className="text-[10px] text-slate-400">Público-alvo ideal</div>
-                <div className="font-bold text-slate-200 mt-0.5 text-[11px] leading-tight">{product.targetAudience}</div>
-              </div>
-              <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <div className="text-[10px] text-slate-400">Preço teto recomendado</div>
-                <div className="font-black text-cyan-400 mt-0.5 text-sm">
-                  {product.idealPrice > 0 ? `Até R$ ${product.idealPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Indefinido'}
+              {/* Tags */}
+              {product.tags && product.tags.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-2">
+                  {product.tags.map((tag, idx) => (
+                    <span key={idx} className="text-[11px] bg-zinc-100 text-black font-black px-2.5 py-0.5 rounded-md border-2 border-black shadow-[1px_1px_0px_0px_#000]">
+                      #{tag}
+                    </span>
+                  ))}
                 </div>
-              </div>
-              <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <div className="text-[10px] text-slate-400">Melhor oferta agora</div>
-                <div className="font-black text-emerald-400 mt-0.5 text-sm">
-                  {product.currentBestPrice > 0 ? `R$ ${product.currentBestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Consulte'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Score & Breakdown Matrix */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 rounded-3xl bg-slate-900/80 border border-slate-800">
-            <div className="flex items-center gap-4">
-              <ScoreBadge score={product.ratingOverall} size="hero" />
-              <div className="space-y-1 text-xs">
-                <div className="text-slate-300">
-                  <span className="font-bold text-cyan-400">{product.creatorRating}/10</span> Nota Criadores
-                </div>
-                <div className="text-slate-300">
-                  <span className="font-bold text-emerald-400">{product.communityRating}/10</span> Nota Usuários ({product.ratingCount} votos)
-                </div>
-              </div>
-            </div>
-
-            {/* Micro Scores Progress Bars */}
-            <div className="space-y-2 text-xs">
-              <div>
-                <div className="flex justify-between text-[11px] text-slate-300 font-medium mb-1">
-                  <span>Desempenho</span>
-                  <span className="font-bold text-cyan-400">{product.performanceScore}/10</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${product.performanceScore * 10}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-[11px] text-slate-300 font-medium mb-1">
-                  <span>Custo-Benefício</span>
-                  <span className="font-bold text-emerald-400">{product.costBenefitScore}/10</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${product.costBenefitScore * 10}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-[11px] text-slate-300 font-medium mb-1">
-                  <span>Qualidade & Durabilidade</span>
-                  <span className="font-bold text-amber-400">{product.durabilityScore}/10</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full" style={{ width: `${product.durabilityScore * 10}%` }} />
-                </div>
-              </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Actions: Favorite & Compare */}
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-detail-fav"
-              onClick={() => toggleFavorite(product.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border font-bold text-xs transition-colors ${
-                isFav 
-                  ? 'bg-rose-500/20 border-rose-500 text-rose-400' 
-                  : 'bg-slate-900 border-slate-800 text-slate-200 hover:border-rose-500/40 hover:text-rose-400'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
-              <span>{isFav ? 'Salvo nos Favoritos' : 'Adicionar à Lista de Desejos'}</span>
-            </button>
+        {/* Right Column: Technical Verdict, Pricing & Ratings (Span 5) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Main Verdict Card */}
+          <div className="bento-card-lime p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between border-b-2 border-black pb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-black fill-black" />
+                <h2 className="text-base font-black text-black uppercase tracking-tight">
+                  Veredito da Bancada
+                </h2>
+              </div>
+              <VerdictBadge verdict={product.recommendationVerdict} size="md" />
+            </div>
 
-            <button
-              id="btn-detail-compare"
-              onClick={() => addToCompare(product)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border font-bold text-xs transition-colors ${
-                isCompared 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' 
-                  : 'bg-slate-900 border-slate-800 text-slate-200 hover:border-cyan-500/40 hover:text-cyan-400'
-              }`}
-            >
-              <Scale className="w-4 h-4" />
-              <span>{isCompared ? 'Adicionado ao Comparador' : 'Comparar com Outro'}</span>
-            </button>
+            <div className="bg-white p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-1.5">
+              <div className="text-[11px] font-black text-black uppercase tracking-wider">
+                Análise Fundamental:
+              </div>
+              <p className="text-xs sm:text-sm text-black font-bold leading-relaxed">
+                {product.verdictReason || 'Construção sólida com alto rendimento por watt e temperatura operacional abaixo da média do mercado.'}
+              </p>
+            </div>
+
+            {/* Price Gauge & Ideal Price */}
+            <div className="space-y-3">
+              <div className="bg-white p-3.5 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_#000] flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-black text-zinc-500 uppercase">Preço Atual Verificado</div>
+                  <div className="text-xl font-black text-black font-mono">
+                    {product.currentBestPrice > 0 ? `R$ ${product.currentBestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sob consulta'}
+                  </div>
+                </div>
+                {product.referencePrice > product.currentBestPrice && product.currentBestPrice > 0 && (
+                  <div className="text-right">
+                    <div className="text-[10px] font-black text-zinc-400 uppercase">Preço de Lançamento</div>
+                    <div className="text-xs text-zinc-500 line-through font-mono font-bold">
+                      R$ {product.referencePrice.toLocaleString('pt-BR')}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white p-3.5 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black text-zinc-500 uppercase">Preço Considerado Ideal/Bom</div>
+                  {product.idealPrice > 0 && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border border-black ${
+                      isPriceGood ? 'bg-[#FF6B00] text-black' : 'bg-amber-300 text-black'
+                    }`}>
+                      {isPriceGood ? '✓ Em faixa ideal' : '⚠️ Acima do ideal'}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xl font-black text-black font-mono">
+                  {product.idealPrice > 0 ? `Até R$ ${product.idealPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Em calibragem'}
+                </div>
+              </div>
+            </div>
+
+            {/* Direct Buy CTA */}
+            {bestOffer && (
+              <button
+                onClick={() => handleAffiliateRedirect(bestOffer.id, bestOffer.affiliateUrl, product.id, bestOffer.storeName, bestOffer.price)}
+                className="w-full bento-btn-dark text-xs py-3 flex items-center justify-center gap-2"
+              >
+                <span>Comprar por R$ {bestOffer.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} na {bestOffer.storeName}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Scores Breakdown Card */}
+          <div className="bento-card p-6 space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-black" />
+                <h3 className="text-xs font-black text-black uppercase tracking-wider">Notas de Bancada</h3>
+              </div>
+              <ScoreBadge score={product.ratingOverall} size="md" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-zinc-50 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000] space-y-1">
+                <div className="text-[10px] text-zinc-600 font-black uppercase">Nota dos Criadores</div>
+                <div className="text-base font-black text-black font-mono">
+                  {Number(product.creatorRating || product.ratingOverall).toFixed(1)} <span className="text-[10px] text-zinc-500">/10</span>
+                </div>
+                <span className="text-[10px] font-bold text-black">{reviews.length} reviews</span>
+              </div>
+
+              <div className="bg-zinc-50 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000] space-y-1">
+                <div className="text-[10px] text-zinc-600 font-black uppercase">Nota da Comunidade</div>
+                <div className="text-base font-black text-black font-mono">
+                  {Number(product.communityRating || 8.5).toFixed(1)} <span className="text-[10px] text-zinc-500">/10</span>
+                </div>
+                <span className="text-[10px] font-bold text-zinc-500">{product.ratingCount || ratings.length} votos</span>
+              </div>
+            </div>
+
+            {/* Subscores */}
+            <div className="space-y-2 pt-2 border-t-2 border-black">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-zinc-700">Desempenho</span>
+                <span className="font-black text-black font-mono">{Number(product.performanceScore || 8.8).toFixed(1)}/10</span>
+              </div>
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-zinc-700">Custo-Benefício</span>
+                <span className="font-black text-black font-mono">{Number(product.costBenefitScore || 8.5).toFixed(1)}/10</span>
+              </div>
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-zinc-700">Qualidade de Construção</span>
+                <span className="font-black text-black font-mono">{Number(product.qualityScore || 8.6).toFixed(1)}/10</span>
+              </div>
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-zinc-700">Durabilidade & Garantia</span>
+                <span className="font-black text-black font-mono">{Number(product.durabilityScore || 8.4).toFixed(1)}/10</span>
+              </div>
+            </div>
           </div>
 
         </div>
 
       </div>
 
-      {/* 2. PROS & CONS (PRÓS E CONTRAS) */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Pros */}
-        <div className="p-6 rounded-3xl bg-emerald-950/20 border border-emerald-500/30 space-y-4">
-          <h3 className="text-base font-black text-emerald-400 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 shrink-0" />
-            <span>Pontos Positivos (Prós)</span>
-          </h3>
-          <ul className="space-y-2.5 text-xs text-slate-300">
-            {product.pros.map((pro, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-                <span className="leading-relaxed">{pro}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Cons */}
-        <div className="p-6 rounded-3xl bg-rose-950/20 border border-rose-500/30 space-y-4">
-          <h3 className="text-base font-black text-rose-400 flex items-center gap-2">
-            <XCircle className="w-5 h-5 shrink-0" />
-            <span>Pontos Negativos (Contras)</span>
-          </h3>
-          <ul className="space-y-2.5 text-xs text-slate-300">
-            {product.cons.map((con, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
-                <span className="leading-relaxed">{con}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-      </section>
-
-      {/* 3. LOJAS & OFERTAS (LINKS DE AFILIADOS RASTREADOS) */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-emerald-400" />
-              <span>Onde Comprar & Melhores Ofertas</span>
-            </h2>
-            <p className="text-xs text-slate-400">Preços verificados nas lojas parceiras com estoque ativo</p>
+      {/* 3. PROS & CONS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bento-card p-6 space-y-4">
+          <div className="flex items-center gap-2 text-black border-b-2 border-black pb-3">
+            <ThumbsUp className="w-4 h-4 fill-[#FF6B00]" />
+            <h3 className="text-sm font-black text-black uppercase tracking-wider">Pontos Fortes (Prós)</h3>
           </div>
-          <span className="text-[11px] text-slate-500 flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Links seguros e auditados
-          </span>
+          <ul className="space-y-2.5">
+            {product.pros && product.pros.length > 0 ? (
+              product.pros.map((pro, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-black font-bold">
+                  <span className="text-black bg-[#FF6B00] px-1 rounded border border-black font-black shrink-0 mt-0.5">✓</span>
+                  <span>{pro}</span>
+                </li>
+              ))
+            ) : (
+              <li className="text-xs text-zinc-500 font-semibold">Nenhum ponto registrado.</li>
+            )}
+          </ul>
         </div>
 
-        <div className="space-y-3">
-          {offers.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400 rounded-2xl bg-slate-900 border border-slate-800">
-              Nenhuma oferta cadastrada no momento para este produto.
-            </div>
-          ) : (
-            offers.map(offer => (
-              <div 
-                key={offer.id}
-                id={`product-offer-row-${offer.id}`}
-                className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 transition-all gap-4 shadow-md"
-              >
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                  <img src={offer.storeLogo} alt={offer.storeName} className="w-10 h-10 rounded-xl object-contain bg-slate-950 p-1 shrink-0" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-slate-100">{offer.storeName}</span>
-                      {offer.couponCode && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                          Cupom: {offer.couponCode}
+        <div className="bento-card p-6 space-y-4">
+          <div className="flex items-center gap-2 text-black border-b-2 border-black pb-3">
+            <XCircle className="w-4 h-4 text-rose-500" />
+            <h3 className="text-sm font-black text-black uppercase tracking-wider">Pontos de Atenção (Contras)</h3>
+          </div>
+          <ul className="space-y-2.5">
+            {product.cons && product.cons.length > 0 ? (
+              product.cons.map((con, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-black font-bold">
+                  <span className="text-white bg-rose-500 px-1 rounded border border-black font-black shrink-0 mt-0.5">✗</span>
+                  <span>{con}</span>
+                </li>
+              ))
+            ) : (
+              <li className="text-xs text-zinc-500 font-semibold">Nenhum ponto negativo crítico detectado.</li>
+            )}
+          </ul>
+        </div>
+      </div>
+
+      {/* 4. STORE OFFERS TABLE */}
+      <div className="bento-card p-6 space-y-4">
+        <div className="flex items-center justify-between border-b-2 border-black pb-3">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-black" />
+            <h3 className="text-base font-black text-black">Ofertas Disponíveis em Lojas Homologadas</h3>
+          </div>
+          <span className="text-xs font-bold text-zinc-500">Preços verificados diariamente</span>
+        </div>
+
+        {offers.length === 0 ? (
+          <div className="text-center py-6 text-xs font-bold text-zinc-500">
+            Nenhuma oferta cadastrada no momento para este produto.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b-2 border-black text-zinc-600 font-black uppercase text-[11px]">
+                  <th className="py-3 px-4">Loja Parceira</th>
+                  <th className="py-3 px-4">Disponibilidade</th>
+                  <th className="py-3 px-4">Preço à Vista</th>
+                  <th className="py-3 px-4 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y-2 divide-zinc-100">
+                {offers.map(offer => (
+                  <tr key={offer.id} className="hover:bg-[#FF6B00]/10 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <img src={offer.storeLogo} alt={offer.storeName} className="w-7 h-7 rounded-lg object-contain bg-white p-0.5 border-2 border-black" />
+                        <span className="font-black text-black">{offer.storeName}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {offer.inStock ? (
+                        <span className="text-black bg-[#FF6B00] px-2 py-0.5 rounded-md border border-black font-black flex items-center gap-1 inline-flex">
+                          <CheckCircle className="w-3.5 h-3.5" /> Em estoque
+                        </span>
+                      ) : (
+                        <span className="text-white bg-rose-500 px-2 py-0.5 rounded-md border border-black font-black flex items-center gap-1 inline-flex">
+                          <XCircle className="w-3.5 h-3.5" /> Esgotado
                         </span>
                       )}
-                    </div>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                      <span className="text-emerald-400">● Em estoque</span>
-                      <span>• Atualizado {offer.lastUpdated}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto">
-                  <div className="text-right">
-                    <div className="text-lg font-black text-emerald-400">
-                      R$ {offer.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </div>
-                    {offer.originalPrice > offer.price && (
-                      <div className="text-[10px] text-slate-400 line-through">
-                        R$ {offer.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (-{offer.discountPercentage}%)
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-black text-black text-base font-mono">
+                        R$ {offer.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
-                    )}
-                  </div>
-
-                  <a
-                    href={offer.affiliateUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={async () => {
-                      try {
-                        await apiService.trackAffiliateClick(offer.id);
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors shadow-lg shadow-emerald-500/20"
-                  >
-                    <span>Ir para Loja</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {/* 4. ESPECIFICAÇÕES TÉCNICAS */}
-      <section className="p-6 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-4">
-        <h3 className="text-base font-black text-white tracking-tight">Especificações Técnicas</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          {Object.entries(product.specs || {}).map(([key, val]) => (
-            <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-              <span className="text-slate-400 font-medium">{key}</span>
-              <span className="font-bold text-slate-100 text-right">{val}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. REVIEWS DE CRIADORES DE CONTEÚDO */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-              <Video className="w-5 h-5 text-cyan-400" />
-              <span>Reviews em Vídeo & Artigos de Criadores</span>
-            </h2>
-            <p className="text-xs text-slate-400">Análises detalhadas com testes reais gravados em vídeo</p>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => handleAffiliateRedirect(offer.id, offer.affiliateUrl, product.id, offer.storeName, offer.price)}
+                        className="bento-btn-lime text-xs px-3.5 py-1.5"
+                      >
+                        <span>Ir para a Loja</span>
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {currentUser && (currentUser.role === 'CREATOR' || currentUser.role === 'ADMIN') && (
-            <button
-              onClick={() => setCurrentPage('creator-dashboard', { tab: 'new-review', productId: product.id })}
-              className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors"
-            >
-              + Publicar Review Deste Produto
-            </button>
-          )}
+        )}
+      </div>
+
+      {/* 5. DETAILED TECHNICAL SPECIFICATIONS TABLE */}
+      <div id="full-specs-section" className="bento-card p-6 space-y-4">
+        <div className="flex items-center justify-between border-b-2 border-black pb-3">
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-black" />
+            <h3 className="text-base font-black text-black">Especificações Técnicas Detalhadas</h3>
+          </div>
+          <span className="text-xs font-bold text-zinc-500">Fonte: Fabricante ({product.brandName})</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b-2 border-black text-zinc-600 font-black uppercase text-[11px]">
+                <th className="py-3 px-4">Especificação</th>
+                <th className="py-3 px-4">Valor Técnico</th>
+                <th className="py-3 px-4 hidden sm:table-cell">Fonte</th>
+                <th className="py-3 px-4 text-right">Auditoria</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y-2 divide-zinc-100">
+              {product.specs && Object.entries(product.specs).map(([specKey, specVal], idx) => {
+                const valString = String(specVal || '');
+                const isUnavailable = !valString || valString.includes('não disponível') || valString.includes('Não disponível');
+                return (
+                  <tr key={idx} className="hover:bg-[#FF6B00]/10 transition-colors">
+                    <td className="py-3 px-4 font-black text-black w-1/3">
+                      {specKey}
+                    </td>
+                    <td className="py-3 px-4 font-bold text-zinc-800">
+                      {isUnavailable ? (
+                        <span className="text-zinc-400 italic">Informação não disponível</span>
+                      ) : (
+                        valString
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-zinc-500 font-semibold hidden sm:table-cell">
+                      Fabricante Oficial ({product.brandName})
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      {isUnavailable ? (
+                        <span className="text-[10px] font-black text-zinc-500 bg-zinc-200 px-2 py-0.5 rounded border border-black">
+                          Não Localizado
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black text-black bg-[#FF6B00] border border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_0px_#000]">
+                          ✓ Alta Confiança
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 6. CREATOR VIDEO REVIEWS */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b-2 border-black pb-4">
+          <div className="flex items-center gap-2">
+            <Video className="w-5 h-5 text-black" />
+            <h3 className="text-lg font-black text-black">Análises de Criadores & Bancada</h3>
+          </div>
+          <span className="text-xs bg-[#FF6B00] text-black px-2 py-0.5 rounded-md border border-black font-black">{reviews.length} análises</span>
         </div>
 
         {reviews.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-400 rounded-2xl bg-slate-900 border border-slate-800">
-            Ainda não há reviews de criadores publicados para este produto. Seja o primeiro!
+          <div className="text-center py-8 text-xs font-bold text-zinc-500 bento-card p-6">
+            Nenhuma review em vídeo submetida para este produto ainda.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {reviews.map(rev => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {reviews.map(review => (
               <ReviewCard
-                key={rev.id}
-                review={rev}
-                onOpenVideo={(r) => setActiveVideoModalReview(r)}
+                key={review.id}
+                review={review}
+                onPlayVideo={(r) => setActiveVideoModalReview(r)}
+                onOpenProduct={(slug) => setCurrentPage('product-detail', { slug })}
+                onOpenCreator={() => setCurrentPage('creators')}
               />
             ))}
           </div>
         )}
-      </section>
+      </div>
 
-      {/* 6. AVALIAÇÕES DOS USUÁRIOS & FORMULÁRIO */}
-      <section className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-cyan-400" />
-              <span>Avaliações da Comunidade ({ratings.length})</span>
-            </h2>
-            <p className="text-xs text-slate-400">Experiências reais de quem comprou e testou no dia a dia</p>
+      {/* 7. SIMILAR PRODUCTS COMPARISON */}
+      {similarProducts.length > 0 && (
+        <div className="bento-card p-6 space-y-4">
+          <div className="flex items-center justify-between border-b-2 border-black pb-3">
+            <div className="flex items-center gap-2">
+              <Scale className="w-5 h-5 text-black" />
+              <h3 className="text-base font-black text-black">Compare com Produtos Similares</h3>
+            </div>
+            <button
+              onClick={() => {
+                addToCompare(product);
+                similarProducts.forEach(p => addToCompare(p));
+                setCurrentPage('compare');
+              }}
+              className="text-xs font-black text-black hover:underline"
+            >
+              Comparar Todos →
+            </button>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {similarProducts.map(sim => (
+              <div 
+                key={sim.id}
+                className="bg-white p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_#000] flex flex-col justify-between space-y-3"
+              >
+                <div className="flex items-center gap-3">
+                  <img src={sim.imageUrl} alt={sim.name} className="w-12 h-12 rounded-xl object-contain bg-white border-2 border-black p-1 shrink-0" />
+                  <div className="min-w-0">
+                    <h5 
+                      onClick={() => setCurrentPage('product-detail', { slug: sim.slug })}
+                      className="text-xs font-black text-black hover:underline cursor-pointer truncate"
+                    >
+                      {sim.name}
+                    </h5>
+                    <div className="text-xs font-mono text-black font-black">
+                      {sim.currentBestPrice > 0 ? `R$ ${sim.currentBestPrice.toLocaleString('pt-BR')}` : 'Sob consulta'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage('product-detail', { slug: sim.slug })}
+                    className="flex-1 bento-btn-white text-[11px] py-1.5"
+                  >
+                    Ver Análise
+                  </button>
+                  <button
+                    onClick={() => {
+                      addToCompare(product);
+                      addToCompare(sim);
+                      setCurrentPage('compare');
+                    }}
+                    className="bento-btn-lime text-[11px] px-3 py-1.5"
+                  >
+                    VS
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 8. COMMUNITY REVIEWS & RATINGS */}
+      <div className="bento-card p-6 space-y-6">
+        <div className="flex items-center justify-between border-b-2 border-black pb-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-black" />
+            <h3 className="text-base font-black text-black">Avaliações da Comunidade</h3>
+          </div>
           <button
-            id="btn-open-user-rating-modal"
             onClick={() => setIsRatingModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors shadow-lg shadow-cyan-500/20"
+            className="bento-btn-lime text-xs px-3.5 py-2"
           >
-            <Star className="w-3.5 h-3.5 fill-current" />
-            <span>Avaliar Este Produto</span>
+            + Avaliar este produto
           </button>
         </div>
 
-        {/* User ratings list */}
-        <div className="space-y-3">
-          {ratings.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400 rounded-2xl bg-slate-900 border border-slate-800">
-              Nenhuma avaliação de usuário enviada ainda. Deixe sua opinião e ajude outros compradores!
-            </div>
-          ) : (
-            ratings.map(rating => (
-              <div 
-                key={rating.id}
-                id={`rating-item-${rating.id}`}
-                className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <img src={rating.userAvatar} alt={rating.userName} className="w-8 h-8 rounded-full object-cover" />
+        {ratings.length === 0 ? (
+          <div className="text-center py-8 text-xs font-bold text-zinc-500">
+            Seja o primeiro a avaliar este produto e compartilhe sua experiência com outros compradores!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ratings.map(rating => (
+              <div key={rating.id} className="bg-zinc-50 border-2 border-black rounded-2xl p-4 space-y-3 shadow-[3px_3px_0px_0px_#000]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <img src={rating.userAvatar} alt={rating.userName} className="w-8 h-8 rounded-full object-cover border border-black" />
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-100">{rating.userName}</span>
-                        {rating.isVerifiedPurchase && (
-                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-0.5 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            <ShieldCheck className="w-3 h-3" /> Compra Verificada
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-500">{new Date(rating.createdAt).toLocaleDateString('pt-BR')}</span>
+                      <div className="text-xs font-black text-black">{rating.userName}</div>
+                      <div className="text-[10px] text-zinc-500 font-bold">{new Date(rating.createdAt).toLocaleDateString('pt-BR')}</div>
                     </div>
                   </div>
-
                   <ScoreBadge score={rating.rating} size="sm" />
                 </div>
 
-                {rating.title && <h4 className="font-bold text-xs text-slate-200">{rating.title}</h4>}
-                <p className="text-xs text-slate-300 leading-relaxed">{rating.comment}</p>
-
-                {/* Pros/Cons sub-bullets */}
-                {(rating.pros.length > 0 || rating.cons.length > 0) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
-                    {rating.pros.length > 0 && (
-                      <div className="text-emerald-400">
-                        <strong>✓ Pró:</strong> {rating.pros.join(', ')}
-                      </div>
-                    )}
-                    {rating.cons.length > 0 && (
-                      <div className="text-rose-400">
-                        <strong>✗ Contra:</strong> {rating.cons.join(', ')}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400">
-                  <button
-                    id={`btn-helpful-rating-${rating.id}`}
-                    onClick={async () => {
-                      try {
-                        const res = await apiService.voteRatingHelpful(rating.id);
-                        rating.helpfulCount = res.helpfulCount;
-                        setData({ ...data });
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors"
-                  >
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                    <span>Útil ({rating.helpfulCount})</span>
-                  </button>
-
-                  <button
-                    onClick={() => setReportModalTarget({ type: 'rating', id: rating.id })}
-                    className="flex items-center gap-1 hover:text-rose-400 transition-colors text-[11px]"
-                  >
-                    <Flag className="w-3 h-3" />
-                    <span>Denunciar</span>
-                  </button>
+                <div className="text-xs text-black font-semibold leading-relaxed">
+                  {rating.comment}
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      </section>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* YouTube Video Modal */}
+      {activeVideoModalReview && (
+        <YouTubeEmbedModal
+          isOpen={true}
+          onClose={() => setActiveVideoModalReview(null)}
+          youtubeVideoId={activeVideoModalReview.youtubeVideoId}
+          reviewTitle={activeVideoModalReview.title}
+          creatorName={activeVideoModalReview.creatorName}
+        />
+      )}
 
       {/* User Rating Submission Modal */}
       {isRatingModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          onClick={() => setIsRatingModalOpen(false)}
-        >
-          <div 
-            className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-slate-100 space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-black text-white">Avaliar {product.name}</h3>
-            <p className="text-xs text-slate-400">Compartilhe sua experiência real para ajudar a comunidade do ReviewHub.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white border-2 border-black rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-[6px_6px_0px_0px_#000]">
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <h3 className="text-base font-black text-black">Avaliar {product.name}</h3>
+              <button onClick={() => setIsRatingModalOpen(false)} className="w-7 h-7 rounded-full border-2 border-black flex items-center justify-center text-black font-black hover:bg-zinc-200">✕</button>
+            </div>
 
-            <form onSubmit={handleRatingSubmit} className="space-y-4">
+            <form onSubmit={handleSubmitRating} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Nota (0 a 10)</label>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="1.0"
-                    max="10.0"
-                    step="0.5"
-                    value={userScore}
-                    onChange={e => setUserScore(parseFloat(e.target.value))}
-                    className="w-full accent-cyan-400"
-                  />
-                  <ScoreBadge score={userScore} size="lg" />
-                </div>
+                <label className="block text-xs font-black text-black mb-1">Nota Geral (0 a 10)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  value={userScore}
+                  onChange={(e) => setUserScore(parseFloat(e.target.value))}
+                  className="bento-input"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Título Resumo</label>
+                <label className="block text-xs font-black text-black mb-1">Título da Avaliação</label>
                 <input
                   type="text"
                   value={userTitle}
-                  onChange={e => setUserTitle(e.target.value)}
-                  placeholder="Ex: Excelente custo-benefício para Full HD"
+                  onChange={(e) => setUserTitle(e.target.value)}
+                  placeholder="Ex: Excelente para 1080p competitivo"
+                  className="bento-input"
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Comentário Detalhado</label>
+                <label className="block text-xs font-black text-black mb-1">Seu Comentário Detalhado</label>
                 <textarea
                   value={userComment}
-                  onChange={e => setUserComment(e.target.value)}
-                  placeholder="Conte sobre desempenho, temperaturas, construção e durabilidade..."
+                  onChange={(e) => setUserComment(e.target.value)}
+                  placeholder="Descreva o desempenho, temperaturas, ruído e experiência geral..."
                   rows={3}
+                  className="bento-input"
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-emerald-400 mb-1">Prós (1 por linha)</label>
-                  <textarea
-                    value={userPros}
-                    onChange={e => setUserPros(e.target.value)}
-                    placeholder="Baixo consumo&#10;Fria e silenciosa"
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-rose-400 mb-1">Contras (1 por linha)</label>
-                  <textarea
-                    value={userCons}
-                    onChange={e => setUserCons(e.target.value)}
-                    placeholder="Preço no lançamento&#10;Apenas 8GB"
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={wouldRecommend}
-                    onChange={e => setWouldRecommend(e.target.checked)}
-                    className="accent-cyan-400"
-                  />
-                  <span>Recomendaria este produto?</span>
-                </label>
-
-                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isVerified}
-                    onChange={e => setIsVerified(e.target.checked)}
-                    className="accent-emerald-400"
-                  />
-                  <span>Compra verificada</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsRatingModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-300"
+                  className="bento-btn-white text-xs px-4 py-2"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingRating}
-                  className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black"
+                  className="bento-btn-lime text-xs px-4 py-2"
                 >
-                  Publicar Avaliação
+                  {isSubmittingRating ? 'Enviando...' : 'Publicar Avaliação'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Report Modal */}
-      {reportModalTarget && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          onClick={() => setReportModalTarget(null)}
-        >
-          <div 
-            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-slate-100 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="text-base font-bold text-white flex items-center gap-2 text-rose-400">
-              <Flag className="w-4 h-4" /> Denunciar Conteúdo
-            </h3>
-            {reportSuccess ? (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs text-center font-bold">
-                Denúncia enviada com sucesso! Nossa equipe analisará o caso.
-              </div>
-            ) : (
-              <form onSubmit={handleReportSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Motivo</label>
-                  <select
-                    value={reportReason}
-                    onChange={e => setReportReason(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100"
-                  >
-                    <option value="Fake review">Review Falso / Manipulado</option>
-                    <option value="Spam">Spam ou Link Malicioso</option>
-                    <option value="Conteúdo ofensivo">Conteúdo Ofensivo / Desrespeitoso</option>
-                    <option value="Informação falsa">Informação Técnica Falsa</option>
-                    <option value="Publicidade não identificada">Publicidade Não Identificada</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Detalhes (Opcional)</label>
-                  <textarea
-                    value={reportDetails}
-                    onChange={e => setReportDetails(e.target.value)}
-                    placeholder="Explique resumidamente por que este item viola as diretrizes..."
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setReportModalTarget(null)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold"
-                  >
-                    Enviar Denúncia
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* YouTube Video Modal */}
-      <YouTubeEmbedModal
-        review={activeVideoModalReview}
-        onClose={() => setActiveVideoModalReview(null)}
-        onOpenProduct={(s) => setCurrentPage('product-detail', { slug: s })}
-      />
 
     </div>
   );

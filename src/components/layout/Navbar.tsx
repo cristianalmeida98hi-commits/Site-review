@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Search, Sun, Moon, Bell, Heart, Scale, User, Shield, Video, 
-  Menu, X, Sparkles, ExternalLink, ChevronDown, Check, LogOut,
-  SlidersHorizontal, Flame, Star, Award
+  Search, Bell, Heart, Scale, User, Shield, Video, 
+  Menu, X, Sparkles, LogOut, Flame, Star, ChevronRight, Layers, Tag
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.js';
 import { apiService } from '../../services/api.js';
@@ -20,8 +19,6 @@ export const Navbar: React.FC<NavbarProps> = () => {
     allUsers, 
     switchUser, 
     logout, 
-    theme, 
-    toggleTheme, 
     currentPage, 
     setCurrentPage, 
     compareList, 
@@ -49,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const roleSwitcherRef = useRef<HTMLDivElement>(null);
 
-  // Live auto-suggest search
+  // Live search suggestion
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
       const timer = setTimeout(async () => {
@@ -92,6 +89,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       setIsSearchOpen(false);
+      setIsMobileMenuOpen(false);
       setCurrentPage('products', { search: searchQuery.trim() });
     }
   };
@@ -99,359 +97,316 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const navItems = [
     { id: 'nav-home', label: 'Início', page: 'home' },
     { id: 'nav-products', label: 'Produtos', page: 'products' },
-    { id: 'nav-reviews', label: 'Reviews', page: 'reviews' },
-    { id: 'nav-compare', label: 'Comparar', page: 'compare' },
+    { id: 'nav-compare', label: 'Comparador', page: 'compare', count: compareList.length },
     { id: 'nav-offers', label: 'Ofertas', page: 'offers' },
+    { id: 'nav-reviews', label: 'Reviews', page: 'reviews' },
     { id: 'nav-creators', label: 'Criadores', page: 'creators' }
   ];
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b-2 border-black bg-white/95 backdrop-blur-md transition-colors shadow-[0_2px_0px_#000]">
-        {/* Top Announcement Bar - Bento Lime Accent */}
-        <div className="w-full bg-[#D4FF59] border-b-2 border-black py-1 px-4 text-center text-xs text-black font-black uppercase tracking-wider flex items-center justify-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-black" />
-          <span>Antes de comprar, confira vereditos técnicos certificados e melhores ofertas</span>
+      <header className="sticky top-0 z-40 w-full border-b-2 border-black bg-white/95 backdrop-blur-md transition-colors">
+        {/* Top Announcement Bar - Destaque Laranja Neon */}
+        <div className="w-full bg-[#FF6B00] border-b-2 border-black py-1.5 px-4 text-center text-xs text-black font-black uppercase tracking-wider flex items-center justify-center gap-2">
+          <Sparkles className="w-4 h-4 text-black fill-black" />
+          <span>Vereditos técnicos independentes e comparação inteligente de hardware</span>
         </div>
 
         {/* Main Navbar Container */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-3 sm:gap-6">
           
           {/* Logo */}
           <div 
-            id="reviewhub-logo"
-            onClick={() => setCurrentPage('home')}
-            className="flex items-center gap-2.5 cursor-pointer group shrink-0"
+            id="nav-logo"
+            onClick={() => { setCurrentPage('home'); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 cursor-pointer shrink-0 select-none group"
           >
-            <div className="w-9 h-9 rounded-xl bg-[#D4FF59] border-2 border-black flex items-center justify-center text-black font-black shadow-[2px_2px_0px_#000] group-hover:scale-105 transition-transform">
-              <Award className="w-5 h-5 text-black fill-current" />
+            <div className="w-10 h-10 rounded-xl bg-[#FF6B00] border-2 border-black flex items-center justify-center font-black text-black text-xl shadow-[3px_3px_0px_0px_#000] group-hover:bg-[#FF8533] transition-all">
+              R
             </div>
-            <div>
-              <span className="font-black text-xl tracking-tight text-black group-hover:text-zinc-700 transition-colors">
-                Review<span className="bg-black text-[#D4FF59] px-1 rounded ml-0.5">HUB</span>
+            <div className="flex flex-col">
+              <span className="font-black text-xl tracking-tight text-black flex items-center gap-1">
+                REVIEW<span className="bg-[#FF6B00] text-black px-1.5 py-0.2 rounded-md border-2 border-black text-sm">HUB</span>
               </span>
-              <span className="block text-[9px] font-black uppercase tracking-widest text-zinc-500 -mt-0.5">
+              <span className="text-[10px] font-black text-zinc-600 -mt-0.5 tracking-widest uppercase">
                 Hardware & Tech
               </span>
             </div>
           </div>
 
-          {/* Navigation Links (Desktop) */}
-          <nav className="hidden lg:flex items-center gap-2">
-            {navItems.map(item => (
+          {/* Desktop Search Bar */}
+          <div ref={searchRef} className="hidden md:flex flex-1 max-w-md relative">
+            <form onSubmit={handleSearchSubmit} className="w-full relative flex items-center">
+              <input
+                id="main-search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.trim().length >= 2 && setIsSearchOpen(true)}
+                placeholder="Buscar placa de vídeo, processador, monitor..."
+                aria-label="Buscar produtos"
+                className="w-full bg-white border-2 border-black rounded-xl pl-10 pr-24 py-2 text-sm font-semibold text-black placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+              />
+              <Search className="w-4 h-4 text-black absolute left-3.5 top-1/2 -translate-y-1/2" />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-16 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-black font-bold text-xs"
+                >
+                  ✕
+                </button>
+              )}
               <button
-                key={item.id}
-                id={item.id}
-                onClick={() => setCurrentPage(item.page)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 border-black transition-all ${
-                  currentPage === item.page
-                    ? 'bg-[#D4FF59] text-black shadow-[2px_2px_0px_#000]'
-                    : 'bg-white hover:bg-zinc-100 text-black shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_#000]'
-                }`}
+                type="submit"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#FF6B00] text-black font-black text-xs px-2.5 py-1 rounded-lg border-2 border-black hover:bg-[#FF8533] transition-all"
               >
-                {item.label}
+                Buscar
               </button>
-            ))}
-          </nav>
-
-          {/* Global Smart Search Bar */}
-          <div ref={searchRef} className="relative flex-1 max-w-md hidden sm:block">
-            <form onSubmit={handleSearchSubmit}>
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700" />
-                <input
-                  id="navbar-search-input"
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  onFocus={() => { if (suggestions) setIsSearchOpen(true); }}
-                  placeholder="Pesquise RTX 4060, Ryzen 7, SSD, Monitor..."
-                  className="w-full pl-9 pr-4 py-2 rounded-full bg-zinc-100 border-2 border-black focus:bg-white text-xs font-semibold text-black placeholder-zinc-500 focus:outline-none shadow-[2px_2px_0px_#000] transition-all"
-                />
-              </div>
             </form>
 
-            {/* Smart Suggestions Dropdown */}
+            {/* Live Search Suggestions Dropdown */}
             {isSearchOpen && suggestions && (
               <div 
                 id="search-suggestions-dropdown"
-                className="absolute top-full left-0 right-0 mt-2 p-3 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#000] z-50 max-h-[75vh] overflow-y-auto space-y-3"
+                className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-black rounded-2xl shadow-[6px_6px_0px_0px_#000] overflow-hidden z-50 divide-y-2 divide-black"
               >
+                {/* Produtos */}
                 {suggestions.products.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-zinc-500 px-2 mb-1.5">
+                  <div className="p-2">
+                    <div className="text-[11px] font-black uppercase text-zinc-500 px-3 py-1">
                       Produtos Encontrados
                     </div>
-                    <div className="space-y-1">
-                      {suggestions.products.map(p => (
-                        <div
-                          key={p.id}
-                          id={`suggest-item-${p.slug}`}
-                          onClick={() => {
-                            setIsSearchOpen(false);
-                            setSearchQuery('');
-                            setCurrentPage('product-detail', { slug: p.slug });
-                          }}
-                          className="flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-zinc-100 border border-transparent hover:border-black cursor-pointer transition-colors group"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <img src={p.imageUrl} alt={p.name} className="w-8 h-8 rounded-lg object-contain bg-zinc-50 border border-black/10 shrink-0 p-1" />
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-black group-hover:text-zinc-700 truncate">{p.name}</div>
-                              <div className="text-[10px] text-zinc-500">{p.categoryName}</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <ScoreBadge score={p.rating} size="sm" />
-                            <span className="text-xs font-black text-emerald-600 font-mono">
-                              R$ {p.price.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                    {suggestions.products.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setCurrentPage('product-detail', { slug: p.slug });
+                        }}
+                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#FF6B00]/30 cursor-pointer transition-colors border border-transparent hover:border-black"
+                      >
+                        <img src={p.imageUrl} alt={p.name} className="w-10 h-10 object-contain rounded-lg bg-white p-1 border-2 border-black" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-black truncate">{p.name}</div>
+                          <div className="flex items-center gap-2 text-xs text-zinc-600">
+                            <span className="text-black font-mono font-black">
+                              {p.price > 0 ? `R$ ${p.price.toLocaleString('pt-BR')}` : 'Sob consulta'}
                             </span>
+                            <span>•</span>
+                            <span className="font-semibold">{p.categoryName}</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <VerdictBadge verdict={p.verdict as any} size="sm" />
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {suggestions.categories.length > 0 && (
-                  <div className="border-t-2 border-black/10 pt-2">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-zinc-500 px-2 mb-1">
-                      Categorias
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 px-2">
-                      {suggestions.categories.map(c => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            setIsSearchOpen(false);
-                            setCurrentPage('products', { category: c.id });
-                          }}
-                          className="px-2.5 py-1 rounded-full bg-zinc-100 border border-black text-[11px] font-bold text-black hover:bg-[#D4FF59]"
-                        >
-                          {c.name}
-                        </button>
-                      ))}
-                    </div>
+                {/* Categorias & Marcas */}
+                {(suggestions.categories.length > 0 || suggestions.brands.length > 0) && (
+                  <div className="p-2.5 bg-zinc-100 flex flex-wrap gap-2">
+                    {suggestions.categories.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setCurrentPage('products', { category: c.id });
+                        }}
+                        className="text-xs bg-white hover:bg-[#FF6B00] text-black font-bold px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000] transition-all"
+                      >
+                        📁 {c.name}
+                      </button>
+                    ))}
+                    {suggestions.brands.map(b => (
+                      <button
+                        key={b.id}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setCurrentPage('products', { search: b.name });
+                        }}
+                        className="text-xs bg-white hover:bg-[#FF6B00] text-black font-bold px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000] transition-all"
+                      >
+                        🏷️ {b.name}
+                      </button>
+                    ))}
                   </div>
                 )}
+
+                <div 
+                  onClick={handleSearchSubmit}
+                  className="p-3 text-center text-xs font-black text-black bg-[#FF6B00] hover:bg-[#FF8533] cursor-pointer transition-colors"
+                >
+                  Ver todos os resultados para "{searchQuery}" →
+                </div>
               </div>
             )}
           </div>
 
-          {/* Right Action Icons & Controls */}
-          <div className="flex items-center gap-2">
-            
-            {/* Live Role Switcher */}
-            <div ref={roleSwitcherRef} className="relative hidden md:block">
+          {/* Desktop Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-1.5">
+            {navItems.map(item => (
               <button
-                id="btn-role-switcher"
-                onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-zinc-100 border-2 border-black text-xs font-black text-black shadow-[2px_2px_0px_#000] transition-colors"
-                title="Alternar Perfil de Demonstração"
+                key={item.id}
+                id={item.id}
+                onClick={() => setCurrentPage(item.page as any)}
+                className={`relative px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all min-h-[40px] flex items-center gap-1.5 ${
+                  currentPage === item.page
+                    ? 'bg-[#FF6B00] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]'
+                    : 'text-black hover:bg-zinc-100'
+                }`}
               >
-                {currentUser?.role === 'ADMIN' && <Shield className="w-3.5 h-3.5 text-rose-600" />}
-                {currentUser?.role === 'CREATOR' && <Video className="w-3.5 h-3.5 text-blue-600" />}
-                {currentUser?.role === 'USER' && <User className="w-3.5 h-3.5 text-emerald-600" />}
-                <span className="truncate max-w-[100px]">{currentUser?.name.split(' ')[0]}</span>
-                <span className="text-[10px] bg-black text-white px-1 rounded font-mono">[{currentUser?.role}]</span>
-                <ChevronDown className="w-3 h-3 text-black" />
+                <span>{item.label}</span>
+                {typeof item.count === 'number' && item.count > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-black text-[#FF6B00] text-[10px] font-black">
+                    {item.count}
+                  </span>
+                )}
               </button>
+            ))}
+          </nav>
 
-              {isRoleSwitcherOpen && (
-                <div className="absolute right-0 mt-2 w-64 p-2 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#000] z-50 space-y-1">
-                  <div className="px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-zinc-500 border-b border-black/10">
-                    Alternar Conta de Demonstração
-                  </div>
-                  {allUsers.map(u => (
-                    <button
-                      key={u.id}
-                      id={`btn-select-user-${u.username}`}
-                      onClick={() => {
-                        switchUser(u.id);
-                        setIsRoleSwitcherOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-colors ${
-                        currentUser?.id === u.id ? 'bg-[#D4FF59] text-black border border-black font-bold' : 'hover:bg-zinc-100 text-zinc-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <img src={u.avatarUrl} alt={u.name} className="w-6 h-6 rounded-full object-cover border border-black shrink-0" />
-                        <div className="truncate">
-                          <div className="font-bold truncate">{u.name}</div>
-                          <div className="text-[10px] opacity-75 font-mono">{u.role}</div>
-                        </div>
-                      </div>
-                      {currentUser?.id === u.id && <Check className="w-4 h-4 shrink-0 text-black font-bold" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Compare Counter Button */}
+          {/* Right Action Icons & User Controls */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            
+            {/* Compare Quick Button */}
             <button
-              id="btn-nav-compare"
+              id="nav-quick-compare"
               onClick={() => setCurrentPage('compare')}
-              className={`relative p-2 rounded-full border-2 border-black transition-colors ${
-                compareList.length > 0
-                  ? 'bg-[#D4FF59] text-black shadow-[2px_2px_0px_#000]'
-                  : 'bg-white text-black shadow-[2px_2px_0px_#000] hover:bg-zinc-100'
+              aria-label={`Comparador com ${compareList.length} itens`}
+              className={`bento-circle-btn relative ${
+                compareList.length > 0 ? 'bg-[#FF6B00]' : ''
               }`}
-              title="Comparador de Produtos"
             >
               <Scale className="w-4 h-4" />
               {compareList.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black text-[#D4FF59] font-black text-[10px] flex items-center justify-center border border-black">
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-black text-[#FF6B00] font-black text-[10px] rounded-full flex items-center justify-center border-2 border-black">
                   {compareList.length}
                 </span>
               )}
             </button>
 
-            {/* Wishlist Favorites Button */}
-            <button
-              id="btn-nav-favorites"
-              onClick={() => setCurrentPage('my-account', { tab: 'favorites' })}
-              className={`relative p-2 rounded-full border-2 border-black transition-colors ${
-                favorites.length > 0
-                  ? 'bg-rose-100 border-2 border-black text-rose-600 shadow-[2px_2px_0px_#000]'
-                  : 'bg-white text-black shadow-[2px_2px_0px_#000] hover:bg-zinc-100'
-              }`}
-              title="Lista de Desejos"
-            >
-              <Heart className={`w-4 h-4 ${favorites.length > 0 ? 'fill-current' : ''}`} />
-              {favorites.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center border border-black">
-                  {favorites.length}
-                </span>
-              )}
-            </button>
-
-            {/* Notifications Bell */}
+            {/* Notifications Dropdown */}
             <div ref={notifRef} className="relative">
               <button
-                id="btn-nav-notifications"
+                id="nav-notifications-btn"
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className={`relative p-2 rounded-full border-2 border-black transition-colors ${
-                  unreadNotificationsCount > 0
-                    ? 'bg-amber-200 border-2 border-black text-black shadow-[2px_2px_0px_#000]'
-                    : 'bg-white text-black shadow-[2px_2px_0px_#000] hover:bg-zinc-100'
-                }`}
-                title="Notificações"
+                aria-label={`Notificações: ${unreadNotificationsCount} não lidas`}
+                className="bento-circle-btn relative"
               >
                 <Bell className="w-4 h-4" />
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black text-[#D4FF59] font-black text-[10px] flex items-center justify-center border border-black">
-                    {unreadNotificationsCount}
-                  </span>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#FF6B00] rounded-full border-2 border-black"></span>
                 )}
               </button>
 
-              {/* Notification Dropdown */}
               {isNotifOpen && (
                 <div 
-                  id="notifications-dropdown"
-                  className="absolute right-0 mt-2 w-80 p-3 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#000] z-50 space-y-2 max-h-96 overflow-y-auto"
+                  id="notifications-menu"
+                  className="absolute right-0 mt-2 w-80 bg-white border-2 border-black rounded-2xl shadow-[6px_6px_0px_0px_#000] overflow-hidden z-50"
                 >
-                  <div className="flex items-center justify-between pb-2 border-b-2 border-black/10">
-                    <span className="text-xs font-black uppercase text-black">Notificações</span>
-                    <span className="text-[10px] bg-[#D4FF59] border border-black text-black font-black px-1.5 py-0.5 rounded-full">{unreadNotificationsCount} novas</span>
+                  <div className="p-3 border-b-2 border-black bg-[#FF6B00] flex items-center justify-between">
+                    <span className="font-black text-xs text-black uppercase tracking-wider">Notificações</span>
+                    <span className="text-[11px] font-bold text-black bg-white px-2 py-0.5 rounded-full border border-black">{unreadNotificationsCount} novas</span>
                   </div>
-
-                  {notifications.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-zinc-500">Nenhuma notificação por enquanto.</div>
-                  ) : (
-                    notifications.map(n => (
-                      <div
-                        key={n.id}
-                        onClick={() => {
-                          markNotificationRead(n.id);
-                          if (n.link) setCurrentPage(n.link.replace('/', ''));
-                          setIsNotifOpen(false);
-                        }}
-                        className={`p-2.5 rounded-xl border-2 text-xs cursor-pointer transition-colors ${
-                          n.read 
-                            ? 'bg-zinc-50 border-zinc-200 text-zinc-500' 
-                            : 'bg-[#D4FF59]/20 border-black text-black font-medium shadow-[2px_2px_0px_#000]'
-                        }`}
-                      >
-                        <div className="font-black text-black">{n.title}</div>
-                        <div className="text-[11px] text-zinc-700 mt-0.5">{n.message}</div>
-                        <div className="text-[9px] text-zinc-400 font-mono mt-1">{new Date(n.createdAt).toLocaleDateString('pt-BR')}</div>
-                      </div>
-                    ))
-                  )}
+                  <div className="max-h-72 overflow-y-auto divide-y-2 divide-zinc-100">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs font-semibold text-zinc-500">Nenhuma notificação recente</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id} 
+                          onClick={() => { markNotificationRead(n.id); if (n.link) setCurrentPage(n.link as any); }}
+                          className={`p-3 text-xs hover:bg-[#FF6B00]/20 cursor-pointer transition-colors ${!n.read ? 'bg-[#FF6B00]/10' : ''}`}
+                        >
+                          <div className="font-black text-black">{n.title}</div>
+                          <div className="text-zinc-600 text-[11px] mt-0.5 font-medium">{n.message}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Theme Toggle */}
-            <button
-              id="btn-toggle-theme"
-              onClick={toggleTheme}
-              className="p-2 rounded-full bg-white border-2 border-black text-black shadow-[2px_2px_0px_#000] hover:bg-zinc-100 transition-colors"
-              title={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-zinc-800" />}
-            </button>
-
-            {/* User Account Menu */}
+            {/* User Account / Role Menu */}
             {currentUser ? (
               <div ref={userMenuRef} className="relative">
                 <button
-                  id="btn-user-profile-menu"
+                  id="nav-user-profile-btn"
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded-full bg-white hover:bg-zinc-100 border-2 border-black shadow-[2px_2px_0px_#000] transition-colors"
+                  className="flex items-center gap-2 p-1 sm:px-3 sm:py-1.5 rounded-xl bg-white border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FF6B00] transition-all min-h-[42px]"
                 >
-                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover border border-black" />
-                  <ChevronDown className="w-3 h-3 text-black" />
+                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-7 h-7 rounded-full object-cover border-2 border-black" />
+                  <div className="hidden sm:flex flex-col text-left">
+                    <span className="text-xs font-black text-black leading-tight truncate max-w-[100px]">{currentUser.name}</span>
+                    <span className="text-[10px] font-extrabold text-zinc-700 uppercase tracking-wider">{currentUser.role}</span>
+                  </div>
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 p-2 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#000] z-50 space-y-1 text-xs">
-                    <div className="px-3 py-2 border-b-2 border-black/10">
-                      <div className="font-black text-black">{currentUser.name}</div>
-                      <div className="text-[10px] text-zinc-500 truncate">{currentUser.email}</div>
+                  <div 
+                    id="user-dropdown-menu"
+                    className="absolute right-0 mt-2 w-60 bg-white border-2 border-black rounded-2xl shadow-[6px_6px_0px_0px_#000] overflow-hidden z-50 divide-y-2 divide-black"
+                  >
+                    <div className="p-3 bg-zinc-50">
+                      <div className="text-xs font-black text-black truncate">{currentUser.name}</div>
+                      <div className="text-[11px] text-zinc-600 font-semibold truncate">{currentUser.email}</div>
+                      <div className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-[#FF6B00] text-black border border-black">
+                        {currentUser.role === 'ADMIN' ? '👑 Administrador' : currentUser.role === 'CREATOR' ? '🎥 Criador Certificado' : '👤 Usuário'}
+                      </div>
                     </div>
 
-                    <button
-                      id="btn-menu-my-account"
-                      onClick={() => { setIsUserMenuOpen(false); setCurrentPage('my-account'); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-100 text-black text-left font-bold"
-                    >
-                      <User className="w-4 h-4 text-black" />
-                      <span>Minha Conta</span>
-                    </button>
+                    <div className="p-1.5 space-y-1">
+                      {currentUser.role === 'ADMIN' && (
+                        <button
+                          id="user-menu-admin-panel"
+                          onClick={() => { setIsUserMenuOpen(false); setCurrentPage('admin'); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-black text-black hover:bg-[#FF6B00] rounded-xl transition-colors"
+                        >
+                          <Shield className="w-4 h-4" />
+                          <span>Painel Administrativo</span>
+                        </button>
+                      )}
 
-                    {(currentUser.role === 'CREATOR' || currentUser.role === 'ADMIN') && (
+                      {currentUser.role === 'CREATOR' && (
+                        <button
+                          id="user-menu-creator-panel"
+                          onClick={() => { setIsUserMenuOpen(false); setCurrentPage('creator-dashboard'); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-black text-black hover:bg-[#FF6B00] rounded-xl transition-colors"
+                        >
+                          <Video className="w-4 h-4" />
+                          <span>Painel do Criador</span>
+                        </button>
+                      )}
+
                       <button
-                        id="btn-menu-creator-panel"
-                        onClick={() => { setIsUserMenuOpen(false); setCurrentPage('creator-dashboard'); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-100 text-black text-left font-bold"
+                        id="user-menu-favorites"
+                        onClick={() => { setIsUserMenuOpen(false); setCurrentPage('products'); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-black hover:bg-zinc-100 rounded-xl transition-colors"
                       >
-                        <Video className="w-4 h-4 text-blue-600" />
-                        <span>Painel do Criador</span>
+                        <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                        <span>Meus Favoritos ({favorites.length})</span>
                       </button>
-                    )}
 
-                    {currentUser.role === 'ADMIN' && (
+                      {/* Switch User for Testing Roles */}
                       <button
-                        id="btn-menu-admin-panel"
-                        onClick={() => { setIsUserMenuOpen(false); setCurrentPage('admin-panel'); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-700 text-left font-black"
+                        onClick={() => { setIsRoleSwitcherOpen(true); setIsUserMenuOpen(false); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-black hover:bg-zinc-100 rounded-xl transition-colors"
                       >
-                        <Shield className="w-4 h-4 text-rose-600" />
-                        <span>Painel Administrativo</span>
+                        <Layers className="w-4 h-4 text-zinc-700" />
+                        <span>Alternar Perfil de Teste</span>
                       </button>
-                    )}
+                    </div>
 
-                    <div className="border-t-2 border-black/10 pt-1">
+                    <div className="p-1.5">
                       <button
-                        id="btn-menu-logout"
+                        id="user-menu-logout"
                         onClick={() => { setIsUserMenuOpen(false); logout(); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-rose-100 text-rose-700 text-left font-black"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        <span>Sair</span>
+                        <span>Sair da conta</span>
                       </button>
                     </div>
                   </div>
@@ -459,74 +414,189 @@ export const Navbar: React.FC<NavbarProps> = () => {
               </div>
             ) : (
               <button
-                id="btn-nav-login"
+                id="nav-login-btn"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-4 py-1.5 rounded-full bg-[#D4FF59] hover:bg-[#c5f53d] text-black font-black uppercase text-xs border-2 border-black shadow-[2px_2px_0px_#000] transition-colors"
+                className="bento-btn-lime text-xs px-4 py-2"
               >
-                Entrar
+                <span>Entrar</span>
               </button>
             )}
 
-            {/* Mobile Menu Toggle */}
+            {/* Mobile Hamburger Menu Toggle */}
             <button
-              id="btn-mobile-menu"
+              id="mobile-menu-toggle-btn"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-full bg-white border-2 border-black text-black shadow-[2px_2px_0px_#000] lg:hidden"
+              aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+              className="lg:hidden bento-circle-btn"
             >
-              {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden px-4 pt-2 pb-4 bg-white border-b-2 border-black space-y-2">
-            {/* Mobile Search input */}
-            <form onSubmit={handleSearchSubmit} className="mb-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Pesquisar produto..."
-                  className="w-full pl-9 pr-3 py-2 rounded-full bg-zinc-100 border-2 border-black text-xs text-black font-semibold"
-                />
-              </div>
-            </form>
+        {/* Mobile Quick Search Bar */}
+        <div className="md:hidden px-4 pb-3">
+          <form onSubmit={handleSearchSubmit} className="relative w-full">
+            <input
+              id="mobile-quick-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar hardware ou review..."
+              aria-label="Buscar produtos no mobile"
+              className="w-full bg-white border-2 border-black rounded-xl pl-9 pr-8 py-2 text-xs font-bold text-black placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+            />
+            <Search className="w-3.5 h-3.5 text-black absolute left-3 top-1/2 -translate-y-1/2" />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-black font-bold text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </form>
+        </div>
 
-            <div className="grid grid-cols-2 gap-2">
+        {/* Full Mobile Drawer Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div 
+            id="mobile-nav-drawer"
+            className="lg:hidden border-t-2 border-black bg-white px-4 py-4 space-y-3"
+          >
+            <div className="space-y-1.5">
               {navItems.map(item => (
                 <button
                   key={item.id}
                   onClick={() => {
-                    setCurrentPage(item.page);
+                    setCurrentPage(item.page as any);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`p-2.5 rounded-xl text-left text-xs font-black uppercase border-2 border-black ${
-                    currentPage === item.page ? 'bg-[#D4FF59] text-black shadow-[2px_2px_0px_#000]' : 'bg-white text-black shadow-[2px_2px_0px_#000]'
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-black transition-all min-h-[44px] border-2 border-black ${
+                    currentPage === item.page
+                      ? 'bg-[#FF6B00] text-black shadow-[3px_3px_0px_0px_#000]'
+                      : 'bg-white text-black hover:bg-zinc-100'
                   }`}
                 >
-                  {item.label}
+                  <span className="flex items-center gap-2">
+                    {item.label}
+                  </span>
+                  {typeof item.count === 'number' && item.count > 0 ? (
+                    <span className="px-2 py-0.5 rounded-full bg-black text-[#FF6B00] text-xs font-black">
+                      {item.count}
+                    </span>
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-black" />
+                  )}
                 </button>
               ))}
             </div>
 
-            {currentUser && (
-              <div className="pt-2 border-t-2 border-black/10 flex items-center justify-between">
-                <span className="text-xs text-zinc-600 font-bold">Perfil: <strong className="text-black">{currentUser.name}</strong></span>
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-black text-[#D4FF59] font-mono">{currentUser.role}</span>
-              </div>
-            )}
+            {/* Atalhos Rápidos no Mobile */}
+            <div className="pt-2 border-t-2 border-black space-y-2">
+              {currentUser?.role === 'ADMIN' && (
+                <button
+                  onClick={() => {
+                    setCurrentPage('admin');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-black text-black bg-[#FF6B00] border-2 border-black shadow-[3px_3px_0px_0px_#000] min-h-[44px]"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Painel Administrativo</span>
+                </button>
+              )}
+
+              {currentUser?.role === 'CREATOR' && (
+                <button
+                  onClick={() => {
+                    setCurrentPage('creator-dashboard');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-black text-black bg-[#FF6B00] border-2 border-black shadow-[3px_3px_0px_0px_#000] min-h-[44px]"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Painel do Criador</span>
+                </button>
+              )}
+
+              {!currentUser ? (
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="w-full bento-btn-lime py-3 text-sm font-black mt-2"
+                >
+                  Fazer Login / Cadastrar
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-black text-black bg-rose-200 border-2 border-black shadow-[2px_2px_0px_0px_#000] min-h-[44px]"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Encerrar Sessão</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </header>
 
+      {/* Role Switcher Modal for Easy Sandbox Testing */}
+      {isRoleSwitcherOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white border-2 border-black rounded-3xl shadow-[6px_6px_0px_0px_#000] max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-black">Alternar Perfil para Testes</h3>
+              <button 
+                onClick={() => setIsRoleSwitcherOpen(false)}
+                className="w-8 h-8 rounded-full border-2 border-black flex items-center justify-center font-bold text-black hover:bg-zinc-200"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs font-semibold text-zinc-600">
+              Selecione qualquer perfil para navegar instantaneamente como Usuário, Criador de Conteúdo ou Administrador.
+            </p>
+            <div className="space-y-2.5 max-h-60 overflow-y-auto">
+              {allUsers.map(u => (
+                <div
+                  key={u.id}
+                  onClick={() => {
+                    switchUser(u.id);
+                    setIsRoleSwitcherOpen(false);
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer border-2 border-black transition-all ${
+                    currentUser?.id === u.id
+                      ? 'bg-[#FF6B00] shadow-[3px_3px_0px_0px_#000]'
+                      : 'bg-white hover:bg-zinc-100 shadow-[2px_2px_0px_0px_#000]'
+                  }`}
+                >
+                  <img src={u.avatarUrl} alt={u.name} className="w-9 h-9 rounded-full object-cover border-2 border-black" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-black truncate">{u.name}</div>
+                    <div className="text-[11px] font-bold text-zinc-600">{u.email}</div>
+                  </div>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border border-black uppercase ${
+                    u.role === 'ADMIN' ? 'bg-rose-300 text-black' : u.role === 'CREATOR' ? 'bg-[#FF6B00] text-black' : 'bg-zinc-200 text-black'
+                  }`}>
+                    {u.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Auth Modal */}
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-      />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>
   );
 };
