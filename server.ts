@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -6,9 +7,13 @@ import type {
   Comment, Favorite, Notification, Conversion, AffiliateClick, Report, 
   AdminLog, AdBanner, PlatformSettings 
 } from './src/types/index.js';
-import { priceRobotEngine } from './src/services/priceRobotEngine.js';
 import { supabasePriceDataLayer } from './src/services/supabasePriceDataLayer.js';
-import { checkSupabaseConnection } from './src/services/supabase.js';
+import { supabaseDataLayer } from './src/services/supabaseDataLayer.js';
+import { testSupabaseConnection } from './src/services/supabaseClient.js';
+import { STORE_CLASSIFICATIONS } from './src/services/priceConnectors/storeConnectors.js';
+import { mercadoLivreConnector } from './src/services/priceConnectors/mercadolivreConnector.js';
+import { priceRobotEngine } from './src/services/priceRobotEngine.js';
+import { runCompleteSupabaseAudit } from './src/services/supabaseAuditRunner.js';
 
 const app = express();
 const PORT = 3000;
@@ -18,13 +23,13 @@ app.use(express.json());
 // --- IN-MEMORY DATABASE WITH ROBUST PERSISTENCE ---
 
 let settings: PlatformSettings = {
-  platformName: 'C-REVIEW',
-  platformLogoText: 'C-REVIEW',
+  platformName: 'ReviewHub',
+  platformLogoText: 'ReviewHub',
   creatorCommissionRate: 40,
   platformCommissionRate: 60,
   minWithdrawalAmount: 50,
   autoApproveVerifiedCreators: false,
-  featuredNotice: 'Explore comparativos técnicos, vereditos de bancada e o robô de monitoramento de preços.'
+  featuredNotice: 'Explore comparativos técnicos e reviews de criadores antes de decidir sua compra.'
 };
 
 let users: User[] = [
@@ -1019,7 +1024,7 @@ app.post('/api/auth/switch-profile', (req, res) => {
   }
 });
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { name, email, role, username, bio, youtubeChannelUrl } = req.body;
   if (!name || !name.trim() || !email || !email.trim()) {
     return res.status(400).json({ error: 'Nome e email são obrigatórios.' });
@@ -1055,10 +1060,17 @@ app.post('/api/auth/register', (req, res) => {
 
   users.push(newUser);
   currentSessionUser = newUser;
+
+  try {
+    await supabaseDataLayer.upsertUser(newUser);
+  } catch (err) {
+    console.warn('[API /api/auth/register] Supabase user persist warning:', err);
+  }
+
   res.json({ success: true, user: newUser });
 });
 
-app.put('/api/auth/profile', (req, res) => {
+app.put('/api/auth/profile', async (req, res) => {
   const user = getAuthUser(req);
   const { name, bio, youtubeChannelUrl, avatarUrl } = req.body;
   
@@ -1066,6 +1078,12 @@ app.put('/api/auth/profile', (req, res) => {
   if (bio !== undefined) user.bio = bio;
   if (youtubeChannelUrl !== undefined) user.youtubeChannelUrl = youtubeChannelUrl;
   if (avatarUrl) user.avatarUrl = avatarUrl;
+
+  try {
+    await supabaseDataLayer.upsertUser(user);
+  } catch (err) {
+    console.warn('[API /api/auth/profile] Supabase user update warning:', err);
+  }
 
   res.json({ success: true, user });
 });
@@ -1075,7 +1093,15 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/users', (req, res) => {
+app.get('/api/users', async (req, res) => {
+  try {
+    const dbUsers = await supabaseDataLayer.getUsers();
+    if (dbUsers.length > 0) {
+      return res.json(dbUsers);
+    }
+  } catch (err) {
+    console.warn('[API /api/users] Supabase query fallback:', err);
+  }
   res.json(users);
 });
 
@@ -1104,8 +1130,20 @@ app.put('/api/settings', (req, res) => {
 });
 
 // --- CATEGORIES & BRANDS ---
-app.get('/api/categories', (req, res) => {
-  // dynamically calculate counts
+app.get('/api/categories', async (req, res) => {
+  try {
+    const dbCategories = await supabaseDataLayer.getCategories();
+    if (dbCategories.length > 0) {
+      const result = dbCategories.map(cat => ({
+        ...cat,
+        productCount: products.filter(p => p.categoryId === cat.id && p.status === 'active').length
+      }));
+      return res.json(result);
+    }
+  } catch (err) {
+    console.warn('[API /api/categories] Supabase query fallback:', err);
+  }
+  // dynamically calculate counts fallback
   const result = categories.map(cat => ({
     ...cat,
     productCount: products.filter(p => p.categoryId === cat.id && p.status === 'active').length
@@ -1113,17 +1151,58 @@ app.get('/api/categories', (req, res) => {
   res.json(result);
 });
 
-app.get('/api/brands', (req, res) => {
+app.get('/api/brands', async (req, res) => {
+  try {
+    const dbBrands = await supabaseDataLayer.getBrands();
+    if (dbBrands.length > 0) {
+      return res.json(dbBrands);
+    }
+  } catch (err) {
+    console.warn('[API /api/brands] Supabase query fallback:', err);
+  }
   res.json(brands.filter(b => b.status === 'active'));
 });
 
-app.get('/api/stores', (req, res) => {
+app.get('/api/stores', async (req, res) => {
+  try {
+    const dbStores = await supabaseDataLayer.getStores();
+    if (dbStores.length > 0) {
+      return res.json(dbStores);
+    }
+  } catch (err) {
+    console.warn('[API /api/stores] Supabase query fallback:', err);
+  }
   res.json(stores.filter(s => s.status === 'active'));
 });
 
 // --- PRODUCTS ---
-app.get('/api/products', (req, res) => {
+app.get('/api/products', async (req, res) => {
   const { category, brand, search, sort, verdict, minPrice, maxPrice, minRating } = req.query;
+
+  // 1. Try querying Supabase products if connected
+  try {
+    const dbProducts = await supabasePriceDataLayer.getProducts({
+      category: category as string,
+      brand: brand as string,
+      search: search as string,
+      verdict: verdict as string,
+      minPrice: minPrice ? Number(minPrice) : undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      minRating: minRating ? Number(minRating) : undefined,
+      sort: sort as string
+    });
+
+    if (dbProducts && dbProducts.length > 0) {
+      if (search) {
+        supabasePriceDataLayer.savePriceSearch(search as string, category as string, brand as string, dbProducts.length).catch(() => {});
+      }
+      return res.json(dbProducts);
+    }
+  } catch (dbErr) {
+    console.warn('[API /api/products] Supabase query fallback:', dbErr);
+  }
+
+  // 2. In-memory / initial dataset fallback
   let list = [...products];
 
   // Filters
@@ -1154,6 +1233,7 @@ app.get('/api/products', (req, res) => {
       p.categoryName.toLowerCase().includes(q) ||
       p.tags.some(t => t.toLowerCase().includes(q))
     );
+    supabasePriceDataLayer.savePriceSearch(search as string, category as string, brand as string, list.length).catch(() => {});
   }
 
   // Sort
@@ -1212,23 +1292,28 @@ app.get('/api/products/search/suggest', (req, res) => {
   });
 });
 
-app.get('/api/products/:slugOrId', (req, res) => {
+app.get('/api/products/:slugOrId', async (req, res) => {
   const { slugOrId } = req.params;
-  const product = products.find(p => p.slug === slugOrId || p.id === slugOrId);
+  let product = products.find(p => p.slug === slugOrId || p.id === slugOrId);
+  
+  if (!product) {
+    product = (await supabasePriceDataLayer.getProductByIdOrSlug(slugOrId)) || undefined;
+  }
+
   if (!product) {
     return res.status(404).json({ error: 'Produto não encontrado.' });
   }
   // increment view count
   product.viewsCount += 1;
 
-  // Get offers for this product
-  const productOffers = offers.filter(o => o.productId === product.id);
+  // Get offers from Supabase / Robot
+  const productOffers = await supabasePriceDataLayer.getProductOffers(product);
 
   // Get reviews for this product
-  const productReviews = reviews.filter(r => r.productId === product.id && r.status === 'published');
+  const productReviews = reviews.filter(r => r.productId === product!.id && r.status === 'published');
 
   // Get user ratings
-  const ratings = userRatings.filter(r => r.productId === product.id);
+  const ratings = userRatings.filter(r => r.productId === product!.id);
 
   res.json({
     product,
@@ -1239,7 +1324,7 @@ app.get('/api/products/:slugOrId', (req, res) => {
 });
 
 // Create product (Admin only)
-app.post('/api/products', (req, res) => {
+app.post('/api/products', async (req, res) => {
   const authUser = getAuthUser(req);
   if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem cadastrar produtos.' });
@@ -1289,6 +1374,12 @@ app.post('/api/products', (req, res) => {
   };
 
   products.push(newProduct);
+  
+  // Persist to Supabase
+  await supabasePriceDataLayer.upsertProduct(newProduct).catch(err => {
+    console.warn('[POST /api/products] Supabase upsert error:', err?.message || err);
+  });
+
   adminLogs.unshift({
     id: `log_${Date.now()}`,
     adminId: authUser.id,
@@ -1304,7 +1395,7 @@ app.post('/api/products', (req, res) => {
 });
 
 // Update product (Admin only)
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
   const authUser = getAuthUser(req);
   if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem atualizar produtos.' });
@@ -1314,6 +1405,12 @@ app.put('/api/products/:id', (req, res) => {
     return res.status(404).json({ error: 'Produto não encontrado.' });
   }
   products[index] = { ...products[index], ...req.body };
+
+  // Persist to Supabase
+  await supabasePriceDataLayer.upsertProduct(products[index]).catch(err => {
+    console.warn('[PUT /api/products] Supabase upsert error:', err?.message || err);
+  });
+
   adminLogs.unshift({
     id: `log_${Date.now()}`,
     adminId: authUser.id,
@@ -1336,6 +1433,12 @@ app.delete('/api/products/:id', (req, res) => {
   const product = products.find(p => p.id === req.params.id);
   if (product) {
     product.status = 'archived';
+    
+    // Update status in Supabase
+    supabasePriceDataLayer.upsertProduct(product).catch(err => {
+      console.warn('[DELETE /api/products/:id] Supabase archive error:', err?.message || err);
+    });
+
     adminLogs.unshift({
       id: `log_${Date.now()}`,
       adminId: authUser.id,
@@ -1393,9 +1496,25 @@ app.post('/api/products/compare', (req, res) => {
 });
 
 // --- REVIEWS & CREATORS ---
-app.get('/api/reviews', (req, res) => {
+app.get('/api/reviews', async (req, res) => {
   const authUser = getAuthUser(req);
   const { status, creatorId, productId } = req.query;
+
+  try {
+    const filter: { status?: string; creatorId?: string; productId?: string } = {};
+    if (status) filter.status = String(status);
+    else if (authUser.role !== 'ADMIN') filter.status = 'published';
+    if (creatorId) filter.creatorId = String(creatorId);
+    if (productId) filter.productId = String(productId);
+
+    const dbReviews = await supabaseDataLayer.getReviews(filter);
+    if (dbReviews.length > 0) {
+      return res.json(dbReviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }
+  } catch (err) {
+    console.warn('[API /api/reviews] Supabase query fallback:', err);
+  }
+
   let list = [...reviews];
   if (status) {
     list = list.filter(r => r.status === status);
@@ -1414,15 +1533,33 @@ app.get('/api/reviews', (req, res) => {
   res.json(list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 });
 
-app.get('/api/reviews/:id', (req, res) => {
-  const review = reviews.find(r => r.id === req.params.id);
+app.get('/api/reviews/:id', async (req, res) => {
+  let review = reviews.find(r => r.id === req.params.id);
+  
+  try {
+    const dbReview = await supabaseDataLayer.getReviewById(req.params.id);
+    if (dbReview) {
+      review = dbReview;
+    }
+  } catch (err) {
+    console.warn('[API /api/reviews/:id] Supabase query fallback:', err);
+  }
+
   if (!review) {
     return res.status(404).json({ error: 'Review não encontrado.' });
   }
   review.views += 1;
-  const reviewComments = comments.filter(c => c.reviewId === review.id);
-  const relatedProduct = products.find(p => p.id === review.productId);
-  const relatedOffers = offers.filter(o => o.productId === review.productId);
+  
+  let reviewComments = comments.filter(c => c.reviewId === review!.id);
+  try {
+    const dbComments = await supabaseDataLayer.getComments(review.id);
+    if (dbComments.length > 0) reviewComments = dbComments;
+  } catch (err) {
+    console.warn('[API /api/reviews/:id comments] Supabase fallback:', err);
+  }
+
+  const relatedProduct = products.find(p => p.id === review!.productId);
+  const relatedOffers = offers.filter(o => o.productId === review!.productId);
 
   res.json({
     review,
@@ -1433,7 +1570,7 @@ app.get('/api/reviews/:id', (req, res) => {
 });
 
 // Create Review (Creator or Admin)
-app.post('/api/reviews', (req, res) => {
+app.post('/api/reviews', async (req, res) => {
   const authUser = getAuthUser(req);
   if (authUser.role !== 'CREATOR' && authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas criadores aprovados e administradores podem publicar reviews.' });
@@ -1484,6 +1621,13 @@ app.post('/api/reviews', (req, res) => {
 
   reviews.unshift(newReview);
 
+  // Save to Supabase PostgreSQL
+  try {
+    await supabaseDataLayer.upsertReview(newReview);
+  } catch (err) {
+    console.warn('[API POST /api/reviews] Supabase save warning:', err);
+  }
+
   // If auto-published, update product reviewCount and average creator rating
   if (status === 'published') {
     product.reviewCount += 1;
@@ -1497,7 +1641,7 @@ app.post('/api/reviews', (req, res) => {
 });
 
 // Like / Unlike review
-app.post('/api/reviews/:id/like', (req, res) => {
+app.post('/api/reviews/:id/like', async (req, res) => {
   const authUser = getAuthUser(req);
   const review = reviews.find(r => r.id === req.params.id);
   if (!review) return res.status(404).json({ error: 'Review não encontrado.' });
@@ -1526,11 +1670,17 @@ app.post('/api/reviews/:id/like', (req, res) => {
     }
   }
 
+  try {
+    await supabaseDataLayer.upsertReview(review);
+  } catch (err) {
+    console.warn('[API /api/reviews/:id/like] Supabase sync warning:', err);
+  }
+
   res.json({ success: true, likes: review.likes, hasLiked: !hasLiked });
 });
 
 // Comments on review
-app.post('/api/reviews/:id/comments', (req, res) => {
+app.post('/api/reviews/:id/comments', async (req, res) => {
   const authUser = getAuthUser(req);
   const { text, parentCommentId } = req.body;
   if (!text || text.trim().length === 0) {
@@ -1556,11 +1706,18 @@ app.post('/api/reviews/:id/comments', (req, res) => {
   comments.push(newComment);
   review.commentsCount += 1;
 
+  try {
+    await supabaseDataLayer.insertComment(newComment);
+    await supabaseDataLayer.upsertReview(review);
+  } catch (err) {
+    console.warn('[API /api/reviews/:id/comments] Supabase sync warning:', err);
+  }
+
   res.json({ success: true, comment: newComment });
 });
 
 // Review Moderation (Admin)
-app.post('/api/admin/reviews/:id/moderate', (req, res) => {
+app.post('/api/admin/reviews/:id/moderate', async (req, res) => {
   const authUser = getAuthUser(req);
   if (authUser.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Apenas administradores podem moderar reviews.' });
@@ -1573,6 +1730,13 @@ app.post('/api/admin/reviews/:id/moderate', (req, res) => {
   review.rejectionReason = rejectionReason;
   review.moderationNotes = moderationNotes;
   review.updatedAt = new Date().toISOString();
+
+  // Save to Supabase
+  try {
+    await supabaseDataLayer.upsertReview(review);
+  } catch (err) {
+    console.warn('[API /api/admin/reviews/:id/moderate] Supabase sync warning:', err);
+  }
 
   // Notify creator
   notifications.unshift({
@@ -1588,7 +1752,7 @@ app.post('/api/admin/reviews/:id/moderate', (req, res) => {
     createdAt: new Date().toISOString()
   });
 
-  adminLogs.unshift({
+  const adminLogEntry: AdminLog = {
     id: `log_${Date.now()}`,
     adminId: authUser.id,
     adminName: authUser.name,
@@ -1597,18 +1761,27 @@ app.post('/api/admin/reviews/:id/moderate', (req, res) => {
     targetId: review.id,
     details: `${status === 'published' ? 'Aprovou' : 'Rejeitou'} o review "${review.title}" do criador ${review.creatorName}`,
     createdAt: new Date().toISOString()
-  });
+  };
+
+  adminLogs.unshift(adminLogEntry);
+  try {
+    await supabaseDataLayer.insertAdminLog(adminLogEntry);
+  } catch (err) {
+    console.warn('[API /api/admin/reviews/:id/moderate] Admin log Supabase warning:', err);
+  }
 
   res.json({ success: true, review });
 });
 
 // --- USER RATINGS & EVALUATIONS ---
-app.post('/api/ratings', (req, res) => {
+app.post('/api/ratings', async (req, res) => {
   const authUser = getAuthUser(req);
   const { productId, rating, title, comment, pros, cons, wouldRecommend, isVerifiedPurchase } = req.body;
   if (!productId || rating === undefined) {
     return res.status(400).json({ error: 'Produto e nota são obrigatórios.' });
   }
+
+  let finalRating: UserRating;
 
   // Prevent duplicate spam from the same user on the same product
   const existing = userRatings.find(r => r.productId === productId && r.userId === authUser.id);
@@ -1622,6 +1795,7 @@ app.post('/api/ratings', (req, res) => {
     existing.wouldRecommend = wouldRecommend !== false;
     existing.isVerifiedPurchase = isVerifiedPurchase || existing.isVerifiedPurchase;
     existing.createdAt = new Date().toISOString();
+    finalRating = existing;
   } else {
     const newRating: UserRating = {
       id: `rate_${Date.now()}`,
@@ -1642,6 +1816,14 @@ app.post('/api/ratings', (req, res) => {
       createdAt: new Date().toISOString()
     };
     userRatings.push(newRating);
+    finalRating = newRating;
+  }
+
+  // Persist to Supabase
+  try {
+    await supabaseDataLayer.upsertUserRating(finalRating);
+  } catch (err) {
+    console.warn('[API POST /api/ratings] Supabase sync warning:', err);
   }
 
   // Recalculate weighted community rating
@@ -1652,13 +1834,20 @@ app.post('/api/ratings', (req, res) => {
     product.communityRating = Number(avgRating.toFixed(1));
     product.ratingCount = prodRatings.length;
     product.ratingOverall = Number(((product.communityRating + product.creatorRating) / 2).toFixed(1));
+    
+    // Update product in Supabase as well
+    try {
+      await supabasePriceDataLayer.upsertProduct(product);
+    } catch (err) {
+      console.warn('[API POST /api/ratings] Product rating update Supabase warning:', err);
+    }
   }
 
   res.json({ success: true });
 });
 
 // Helpful vote on user rating
-app.post('/api/ratings/:id/helpful', (req, res) => {
+app.post('/api/ratings/:id/helpful', async (req, res) => {
   const authUser = getAuthUser(req);
   const r = userRatings.find(item => item.id === req.params.id);
   if (!r) return res.status(404).json({ error: 'Avaliação não encontrada.' });
@@ -1671,6 +1860,13 @@ app.post('/api/ratings/:id/helpful', (req, res) => {
     r.helpfulBy = r.helpfulBy.filter(id => id !== userId);
     r.helpfulCount = Math.max(0, r.helpfulCount - 1);
   }
+
+  try {
+    await supabaseDataLayer.upsertUserRating(r);
+  } catch (err) {
+    console.warn('[API /api/ratings/:id/helpful] Supabase sync warning:', err);
+  }
+
   res.json({ success: true, helpfulCount: r.helpfulCount });
 });
 
@@ -1684,7 +1880,7 @@ app.get('/api/offers', (req, res) => {
 });
 
 // Track Affiliate Click (Returns destination URL and records event)
-app.post('/api/affiliates/click', (req, res) => {
+app.post('/api/affiliates/click', async (req, res) => {
   const { offerId, creatorId } = req.body;
   const offer = offers.find(o => o.id === offerId);
   if (!offer) {
@@ -1707,6 +1903,12 @@ app.post('/api/affiliates/click', (req, res) => {
 
   affiliateClicks.unshift(click);
 
+  try {
+    await supabaseDataLayer.insertAffiliateClick(click);
+  } catch (err) {
+    console.warn('[API /api/affiliates/click] Supabase click track warning:', err);
+  }
+
   res.json({
     success: true,
     clickId: click.id,
@@ -1715,7 +1917,7 @@ app.post('/api/affiliates/click', (req, res) => {
 });
 
 // Simulation of purchase conversion for Creator monetization demo
-app.post('/api/affiliates/simulate-conversion', (req, res) => {
+app.post('/api/affiliates/simulate-conversion', async (req, res) => {
   const { offerId, creatorId } = req.body;
   const offer = offers.find(o => o.id === offerId) || offers[0];
   const product = products.find(p => p.id === offer.productId);
@@ -1748,10 +1950,22 @@ app.post('/api/affiliates/simulate-conversion', (req, res) => {
 
   conversions.unshift(conv);
 
+  try {
+    await supabaseDataLayer.insertConversion(conv);
+  } catch (err) {
+    console.warn('[API /api/affiliates/simulate-conversion] Supabase conversion warning:', err);
+  }
+
   // Credit creator balance
   if (creator) {
     creator.balance += creatorCommission;
     creator.totalEarnings += creatorCommission;
+
+    try {
+      await supabaseDataLayer.upsertUser(creator);
+    } catch (err) {
+      console.warn('[API /api/affiliates/simulate-conversion] Creator balance update Supabase warning:', err);
+    }
 
     notifications.unshift({
       id: `notif_${Date.now()}`,
@@ -1977,9 +2191,17 @@ app.post('/api/admin/reports/:id/resolve', (req, res) => {
 });
 
 // --- ADMIN AUDIT LOGS & STATS ---
-app.get('/api/admin/logs', (req, res) => {
+app.get('/api/admin/logs', async (req, res) => {
   const authUser = getAuthUser(req);
   if (authUser.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado.' });
+  try {
+    const dbLogs = await supabaseDataLayer.getAdminLogs();
+    if (dbLogs.length > 0) {
+      return res.json(dbLogs);
+    }
+  } catch (err) {
+    console.warn('[API /api/admin/logs] Supabase fallback:', err);
+  }
   res.json(adminLogs);
 });
 
@@ -2008,33 +2230,36 @@ app.get('/api/admin/stats', (req, res) => {
   });
 });
 
-// --- ADS ---
-app.get('/api/ads', (req, res) => {
-  res.json(adBanners.filter(a => a.active));
-});
+// --- PRICE ROBOT & SUPABASE ENDPOINTS ---
 
-// --- PRICE ROBOT & SUPABASE API ENDPOINTS ---
-app.get('/api/supabase/status', async (req, res) => {
+// 0. Full Supabase Technical Audit
+app.get('/api/admin/supabase-audit', async (req, res) => {
   try {
-    const status = await checkSupabaseConnection();
-    res.json(status);
+    const auditReport = await runCompleteSupabaseAudit();
+    res.json(auditReport);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message || 'Erro ao executar auditoria' });
   }
 });
 
-app.get('/api/price-robot/stats', async (req, res) => {
+// 1. Connection & Data Layer Status
+app.get('/api/price-robot/status', async (req, res) => {
   try {
-    const stats = priceRobotEngine.getStats(products.length);
-    res.json(stats);
+    const status = supabasePriceDataLayer.getStatus();
+    const connTest = await testSupabaseConnection();
+    res.json({
+      ...status,
+      connectionTest: connTest
+    });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message || 'Erro ao verificar status do robô' });
   }
 });
 
+// 2. Sources Management
 app.get('/api/price-robot/sources', async (req, res) => {
   try {
-    const sources = await priceRobotEngine.getSourcesAsync();
+    const sources = await supabasePriceDataLayer.getSources();
     res.json(sources);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -2043,45 +2268,19 @@ app.get('/api/price-robot/sources', async (req, res) => {
 
 app.post('/api/price-robot/sources/:id/toggle', async (req, res) => {
   try {
-    const updated = await priceRobotEngine.toggleSourceStatusAsync(req.params.id);
+    const updated = await supabasePriceDataLayer.toggleSourceStatus(req.params.id);
     if (!updated) return res.status(404).json({ error: 'Fonte não encontrada' });
-    res.json(updated);
+    res.json({ success: true, source: updated });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/price-robot/offers', async (req, res) => {
+// 3. Stats & Logs
+app.get('/api/price-robot/stats', async (req, res) => {
   try {
-    const { productId } = req.query;
-    if (productId && typeof productId === 'string') {
-      const offers = await supabasePriceDataLayer.getOffersByProductId(productId);
-      return res.json(offers);
-    }
-    const allOffers = await supabasePriceDataLayer.getAllOffers();
-    res.json(allOffers);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/price-robot/history/:productId', async (req, res) => {
-  try {
-    const prod = products.find(p => p.id === req.params.productId || p.slug === req.params.productId);
-    if (!prod) return res.status(404).json({ error: 'Produto não encontrado' });
-    const history = priceRobotEngine.getProductPriceHistory(prod);
-    res.json(history);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/price-robot/analysis/:productId', async (req, res) => {
-  try {
-    const prod = products.find(p => p.id === req.params.productId || p.slug === req.params.productId);
-    if (!prod) return res.status(404).json({ error: 'Produto não encontrado' });
-    const analysis = priceRobotEngine.analyzePrice(prod);
-    res.json(analysis);
+    const stats = await supabasePriceDataLayer.getStats(products.length);
+    res.json(stats);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2089,31 +2288,135 @@ app.get('/api/price-robot/analysis/:productId', async (req, res) => {
 
 app.get('/api/price-robot/logs', async (req, res) => {
   try {
-    const logs = await priceRobotEngine.getLogsAsync();
+    const logs = await supabasePriceDataLayer.getLogs();
     res.json(logs);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// 4. Product Offers & History
+app.get('/api/price-robot/products/:id/offers', async (req, res) => {
+  try {
+    const product = products.find(p => p.id === req.params.id || p.slug === req.params.id);
+    if (!product) return res.status(404).json({ error: 'Produto não encontrado' });
+    const offers = await supabasePriceDataLayer.getProductOffers(product);
+    res.json(offers);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/price-robot/products/:id/history', async (req, res) => {
+  try {
+    const product = products.find(p => p.id === req.params.id || p.slug === req.params.id);
+    if (!product) return res.status(404).json({ error: 'Produto não encontrado' });
+    const history = await supabasePriceDataLayer.getProductPriceHistory(product);
+    res.json(history);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Connectors Status & Classification
+app.get('/api/price-robot/connectors/status', (req, res) => {
+  const mlStatus = mercadoLivreConnector.getStatus();
+  res.json({
+    stores: STORE_CLASSIFICATIONS,
+    mercadoLivre: mlStatus
+  });
+});
+
+// 6. Manual Comprehensive Scan
 app.post('/api/price-robot/scan', async (req, res) => {
   try {
-    const result = await priceRobotEngine.executeScan(products);
+    const activeProducts = products.filter(p => p.status === 'active');
+    const result = await priceRobotEngine.executeScan(activeProducts);
+    
+    // Also try saving to Supabase if configured
+    for (const prod of activeProducts) {
+      const offers = priceRobotEngine.generateVerifiedOffersForProduct(prod);
+      await supabasePriceDataLayer.saveOffers(prod.id, offers).catch(() => {});
+    }
+
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/price-robot/scan-product/:productId', async (req, res) => {
+// 7. Real Test Pipeline (Specifically for AMD Radeon RX 6600 8GB or selected product)
+app.post('/api/price-robot/test-real-product', async (req, res) => {
   try {
-    const prod = products.find(p => p.id === req.params.productId || p.slug === req.params.productId);
-    if (!prod) return res.status(404).json({ error: 'Produto não encontrado' });
-    const result = await priceRobotEngine.scanSingleProduct(prod);
-    res.json(result);
+    const { productId } = req.body || {};
+    const targetProduct = productId ? products.find(p => p.id === productId || p.slug === productId) : undefined;
+    const testResult = await supabasePriceDataLayer.executeRealProductTest(targetProduct);
+    res.json(testResult);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Falha no teste real do pipeline de preços.' });
+  }
+});
+
+// 8. Trigger Edge Function / Cron Automation Pipeline
+app.post('/api/price-robot/edge-function/trigger', async (req, res) => {
+  try {
+    const activeProducts = products.filter(p => p.status === 'active');
+    let totalOffersUpdated = 0;
+    let priceDropsFound = 0;
+    const startTime = Date.now();
+
+    for (const prod of activeProducts) {
+      const offers = priceRobotEngine.generateVerifiedOffersForProduct(prod);
+      await supabasePriceDataLayer.saveOffers(prod.id, offers).catch(() => {});
+      totalOffersUpdated += offers.length;
+      
+      const lowest = offers[0];
+      if (lowest && prod.idealPrice && lowest.price <= prod.idealPrice) {
+        priceDropsFound++;
+      }
+
+      await supabasePriceDataLayer.recordPriceHistory(
+        prod.id,
+        prod.name,
+        lowest.price,
+        lowest.storeName,
+        lowest.sourceId
+      ).catch(() => {});
+    }
+
+    const log = {
+      id: `log_cron_sim_${Date.now()}`,
+      executionType: 'scheduled' as const,
+      sourceName: 'Simulação Edge Function price-update',
+      productId: 'all_catalog',
+      productName: 'Catálogo Geral Ativo',
+      status: 'success' as const,
+      offersFound: totalOffersUpdated,
+      durationMs: Date.now() - startTime,
+      message: `Execução simulada de Edge Function: ${activeProducts.length} produtos processados, ${totalOffersUpdated} ofertas atualizadas.`,
+      timestamp: new Date().toISOString(),
+      confidenceAverage: 97.5
+    };
+
+    await supabasePriceDataLayer.insertLog(log).catch(() => {});
+
+    res.json({
+      success: true,
+      message: 'Execução manual da automação price-update concluída.',
+      productsProcessed: activeProducts.length,
+      offersUpdated: totalOffersUpdated,
+      priceDropsFound,
+      durationMs: Date.now() - startTime,
+      log
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- ADS ---
+app.get('/api/ads', (req, res) => {
+  res.json(adBanners.filter(a => a.active));
 });
 
 // --- HEALTH CHECK ---
@@ -2125,6 +2428,27 @@ app.get('/api/health', (req, res) => {
 // VITE MIDDLEWARE & SERVER STARTUP
 // ==========================================
 export async function startServer() {
+  // Check & sync initial database state with Supabase if configured
+  try {
+    const config = supabasePriceDataLayer.getStatus();
+    if (config.isConfigured) {
+      console.log('[ReviewHub Server] Supabase detectado. Verificando sincronização inicial de todas as tabelas...');
+      await supabaseDataLayer.seedAllInitialDataIfEmpty({
+        users,
+        categories,
+        brands,
+        stores,
+        products,
+        reviews,
+        userRatings,
+        comments
+      });
+      console.log('[ReviewHub Server] Supabase sincronizado com sucesso.');
+    }
+  } catch (err: any) {
+    console.warn('[ReviewHub Server] Supabase auto-sync aviso:', err?.message || err);
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

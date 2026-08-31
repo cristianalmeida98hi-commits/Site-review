@@ -4,16 +4,16 @@ import {
   XCircle, AlertTriangle, Settings, Plus, Trash2, Edit3, 
   RefreshCw, Check, Clock, Sparkles, ExternalLink, Database,
   Layers, Tag, FileText, BarChart3, Search, Sliders, CheckSquare, Edit,
-  HelpCircle, Bot, Zap, Globe, Cpu, Server, CheckCheck
+  HelpCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 import { apiService } from '../services/api.js';
 import { specificationService } from '../services/specificationService.js';
-import type { Review, Product, Report, PlatformSettings, AuditLog, Category, Brand, SpecificationItem, PriceSource, PriceRobotLog } from '../types/index.js';
+import type { Review, Product, Report, PlatformSettings, AuditLog, Category, Brand, SpecificationItem } from '../types/index.js';
 import { ScoreBadge } from '../components/common/ScoreBadge.js';
 import { VerdictBadge } from '../components/common/VerdictBadge.js';
 
-type MainTabGroup = 'catalog' | 'content' | 'commercial' | 'robot' | 'users' | 'system';
+type MainTabGroup = 'catalog' | 'content' | 'commercial' | 'users' | 'system';
 
 interface AdminSpecRow {
   label: string;
@@ -41,15 +41,15 @@ export const AdminPanelPage: React.FC = () => {
   const [dbTestResult, setDbTestResult] = useState<any>(null);
   const [isTestingDb, setIsTestingDb] = useState(false);
 
-  // Price Robot & Supabase State
-  const [robotSources, setRobotSources] = useState<PriceSource[]>([]);
-  const [robotLogs, setRobotLogs] = useState<PriceRobotLog[]>([]);
-  const [robotStats, setRobotStats] = useState<any>(null);
-  const [supabaseStatus, setSupabaseStatus] = useState<any>(null);
-  const [isScanningRobot, setIsScanningRobot] = useState(false);
-  const [isTestingLiveConnector, setIsTestingLiveConnector] = useState(false);
-  const [selectedScanProduct, setSelectedScanProduct] = useState<string>('');
-  const [liveScanResult, setLiveScanResult] = useState<any>(null);
+  // Price Robot & Supabase Production Diagnostics
+  const [priceRobotStatus, setPriceRobotStatus] = useState<any>(null);
+  const [connectorsInfo, setConnectorsInfo] = useState<any>(null);
+  const [realTestResult, setRealTestResult] = useState<any>(null);
+  const [isTestingRobot, setIsTestingRobot] = useState(false);
+  const [cronResult, setCronResult] = useState<any>(null);
+  const [isTriggeringCron, setIsTriggeringCron] = useState(false);
+  const [supabaseAuditResult, setSupabaseAuditResult] = useState<any>(null);
+  const [isAuditingSupabase, setIsAuditingSupabase] = useState(false);
 
   // Modal de Rejeição de Review
   const [rejectModalReviewId, setRejectModalReviewId] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export const AdminPanelPage: React.FC = () => {
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
-      const [st, pRevs, prods, reps, sets, logs, cats, brs, rSources, rLogs, rStats, supaStatus] = await Promise.all([
+      const [st, pRevs, prods, reps, sets, logs, cats, brs] = await Promise.all([
         apiService.getAdminStats(),
         apiService.getPendingReviews(),
         apiService.getProducts(),
@@ -87,11 +87,7 @@ export const AdminPanelPage: React.FC = () => {
         apiService.getPlatformSettings(),
         apiService.getAuditLogs(),
         apiService.getCategories(),
-        apiService.getBrands(),
-        apiService.getPriceRobotSources(),
-        apiService.getPriceRobotLogs(),
-        apiService.getPriceRobotStats(),
-        apiService.getSupabaseStatus()
+        apiService.getBrands()
       ]);
       setStats(st);
       setPendingReviews(pRevs);
@@ -101,11 +97,6 @@ export const AdminPanelPage: React.FC = () => {
       setAuditLogs(logs);
       setCategories(cats);
       setBrands(brs);
-      setRobotSources(rSources);
-      setRobotLogs(rLogs);
-      setRobotStats(rStats);
-      setSupabaseStatus(supaStatus);
-      if (prods.length > 0 && !selectedScanProduct) setSelectedScanProduct(prods[0].id);
       if (cats.length > 0 && !prodCategory) setProdCategory(cats[0].id);
       if (brs.length > 0 && !prodBrand) setProdBrand(brs[0].id);
     } catch (e) {
@@ -115,62 +106,15 @@ export const AdminPanelPage: React.FC = () => {
     }
   };
 
-  const handleToggleRobotSource = async (sourceId: string) => {
-    try {
-      const updated = await apiService.togglePriceRobotSource(sourceId);
-      setRobotSources(prev => prev.map(s => s.id === sourceId ? updated : s));
-    } catch (err: any) {
-      alert('Erro ao alterar status da fonte: ' + err.message);
-    }
-  };
-
-  const handleRunBatchRobotScan = async () => {
-    try {
-      setIsScanningRobot(true);
-      const result = await apiService.triggerPriceRobotScan();
-      alert(`Varredura do Robô concluída com sucesso!\n${result.scannedProductsCount} produtos analisados.\n${result.totalOffersFound} ofertas capturadas e normalizadas.`);
-      await loadAdminData();
-    } catch (err: any) {
-      alert('Erro durante varredura do robô: ' + err.message);
-    } finally {
-      setIsScanningRobot(false);
-    }
-  };
-
-  const handleRunSingleProductLiveScan = async () => {
-    if (!selectedScanProduct) {
-      alert('Selecione um produto para escanear.');
-      return;
-    }
-    try {
-      setIsTestingLiveConnector(true);
-      setLiveScanResult(null);
-      const result = await apiService.triggerPriceRobotScanProduct(selectedScanProduct);
-      setLiveScanResult(result);
-      await loadAdminData();
-    } catch (err: any) {
-      alert('Erro ao testar conector de preço ao vivo: ' + err.message);
-    } finally {
-      setIsTestingLiveConnector(false);
-    }
-  };
-
-  const handleTestDatabase = async () => {
-    try {
-      setIsTestingDb(true);
-      const status = await apiService.getSupabaseStatus();
-      setDbTestResult(status);
-      setSupabaseStatus(status);
-    } catch (e: any) {
-      setDbTestResult({ connected: false, message: e.message });
-    } finally {
-      setIsTestingDb(false);
-    }
-  };
-
   useEffect(() => {
     loadAdminData();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (activeGroup === 'system') {
+      handleLoadPriceRobotDiagnostics();
+    }
+  }, [activeGroup]);
 
   // Função para buscar especificações automaticamente via SpecificationService
   const handleAutoFetchSpecs = async () => {
@@ -290,6 +234,84 @@ export const AdminPanelPage: React.FC = () => {
     }
   };
 
+  const handleTestDatabase = async () => {
+    try {
+      setIsTestingDb(true);
+      const res = await apiService.testFirestoreConnection();
+      setDbTestResult(res);
+    } catch (e: any) {
+      setDbTestResult({ connected: false, message: e.message });
+    } finally {
+      setIsTestingDb(false);
+    }
+  };
+
+  const handleLoadPriceRobotDiagnostics = async () => {
+    try {
+      const [st, conn] = await Promise.all([
+        apiService.getPriceRobotStatus(),
+        apiService.getConnectorsStatus()
+      ]);
+      setPriceRobotStatus(st);
+      setConnectorsInfo(conn);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleTestPriceRobotPipeline = async () => {
+    try {
+      setIsTestingRobot(true);
+      setRealTestResult(null);
+      const res = await apiService.testRealProductPipeline();
+      setRealTestResult(res);
+      await handleLoadPriceRobotDiagnostics();
+    } catch (e: any) {
+      setRealTestResult({ success: false, error: e.message || 'Falha na execução do teste' });
+    } finally {
+      setIsTestingRobot(false);
+    }
+  };
+
+  const handleTriggerCronAutomation = async () => {
+    try {
+      setIsTriggeringCron(true);
+      setCronResult(null);
+      const res = await apiService.triggerEdgeFunctionPriceUpdate();
+      setCronResult(res);
+      await handleLoadPriceRobotDiagnostics();
+    } catch (e: any) {
+      setCronResult({ success: false, error: e.message || 'Falha ao acionar automação' });
+    } finally {
+      setIsTriggeringCron(false);
+    }
+  };
+
+  const handleRunSupabaseAudit = async () => {
+    try {
+      setIsAuditingSupabase(true);
+      setSupabaseAuditResult(null);
+      const audit = await apiService.getSupabaseAudit();
+      setSupabaseAuditResult(audit);
+      await handleLoadPriceRobotDiagnostics();
+    } catch (e: any) {
+      setSupabaseAuditResult({
+        allPassed: false,
+        summary: {
+          passedCount: 0,
+          failedCount: 1,
+          warnings: ['Falha ao executar auditoria: ' + (e.message || String(e))],
+          filesToReview: []
+        },
+        results: [
+          { step: 1, title: 'Erro de Execução da Auditoria', passed: false, details: e.message || String(e) }
+        ]
+      });
+    } finally {
+      setIsAuditingSupabase(false);
+    }
+  };
+
   const handleApproveReview = async (reviewId: string) => {
     try {
       await apiService.moderateReview(reviewId, 'PUBLISHED');
@@ -399,21 +421,6 @@ export const AdminPanelPage: React.FC = () => {
         >
           <ShoppingBag className="w-4 h-4" />
           <span>💼 COMERCIAL</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveGroup('robot'); setSubTab('robot_sources'); }}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 shrink-0 relative ${
-            activeGroup === 'robot'
-              ? 'bg-[#141721] text-orange-400 border-t-2 border-[#FF6600]'
-              : 'text-zinc-400 hover:text-white'
-          }`}
-        >
-          <Bot className="w-4 h-4 text-orange-400" />
-          <span>🤖 ROBÔ DE PREÇOS (SUPABASE)</span>
-          <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded text-[9px] font-mono">
-            Ao Vivo
-          </span>
         </button>
 
         <button
@@ -582,246 +589,6 @@ export const AdminPanelPage: React.FC = () => {
         </div>
       )}
 
-      {/* CONTEÚDO DO GRUPO: 🤖 ROBÔ DE PREÇOS (SUPABASE) */}
-      {activeGroup === 'robot' && (
-        <div className="space-y-6">
-          
-          {/* Top Status & Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400 font-medium">Status do Robô</span>
-                <span className="flex h-2.5 w-2.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-              </div>
-              <div className="text-xl font-bold text-emerald-400 font-mono">
-                {robotStats?.status === 'running' ? 'Varredura Ativa' : 'Em Monitoramento'}
-              </div>
-              <div className="text-[10px] text-zinc-400">Intervalo: a cada 60 min</div>
-            </div>
-
-            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
-              <span className="text-xs text-zinc-400 font-medium">Fontes Homologadas</span>
-              <div className="text-xl font-bold text-white font-mono">
-                {robotSources.filter(s => s.status === 'active').length} / {robotSources.length}
-              </div>
-              <div className="text-[10px] text-zinc-400">Lojas Nacionais Ativas</div>
-            </div>
-
-            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
-              <span className="text-xs text-zinc-400 font-medium">Confiança Média</span>
-              <div className="text-xl font-bold text-orange-400 font-mono">
-                {robotStats?.averageConfidence || 97.5}%
-              </div>
-              <div className="text-[10px] text-zinc-400">Normalização e Outliers</div>
-            </div>
-
-            <div className="bg-[#141721] border border-[#283044] rounded-xl p-4 space-y-1">
-              <span className="text-xs text-zinc-400 font-medium">Banco Supabase</span>
-              <div className={`text-xl font-bold font-mono ${supabaseStatus?.connected ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {supabaseStatus?.connected ? 'PostgreSQL Conectado' : 'Modo Seguro / Memória'}
-              </div>
-              <div className="text-[10px] text-zinc-400">{supabaseStatus?.supabaseUrlHost || 'Pronto para credenciais'}</div>
-            </div>
-          </div>
-
-          {/* Teste do Conector Ao Vivo (Mercado Livre API / Multi-Lojas) */}
-          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#283044] pb-4">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-orange-400" />
-                  <span>Teste do Conector Ao Vivo (Mercado Livre & Lojas Oficiais)</span>
-                </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Executa a consulta real, pontuação de confiança (0-100), verificação de outliers e persiste a oferta e histórico no Supabase.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleRunBatchRobotScan}
-                  disabled={isScanningRobot}
-                  className="px-3.5 py-2 rounded-lg bg-[#283044] text-zinc-200 hover:text-white text-xs font-bold flex items-center gap-1.5"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningRobot ? 'animate-spin' : ''}`} />
-                  <span>{isScanningRobot ? 'Varrendo Catálogo...' : 'Varredura Geral'}</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-zinc-300 mb-1">Selecione o Produto para Varredura de Preços:</label>
-                <select
-                  value={selectedScanProduct}
-                  onChange={(e) => setSelectedScanProduct(e.target.value)}
-                  className="tech-input text-xs"
-                >
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — Atual: R$ {p.currentBestPrice.toLocaleString('pt-BR')} (Meta: R$ {p.idealPrice ? p.idealPrice.toLocaleString('pt-BR') : 'N/D'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="sm:self-end">
-                <button
-                  onClick={handleRunSingleProductLiveScan}
-                  disabled={isTestingLiveConnector || !selectedScanProduct}
-                  className="btn-orange-primary text-xs px-5 py-2.5 flex items-center justify-center gap-2 w-full sm:w-auto"
-                >
-                  <Bot className={`w-4 h-4 ${isTestingLiveConnector ? 'animate-bounce' : ''}`} />
-                  <span>{isTestingLiveConnector ? 'Consultando Fontes...' : 'Executar Varredura Ao Vivo'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Resultado do Teste Ao Vivo */}
-            {liveScanResult && (
-              <div className="bg-[#0D0F15] border border-[#283044] rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-[#283044] pb-2">
-                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                    <CheckCheck className="w-4 h-4" />
-                    <span>Varredura Concluída: {liveScanResult.offers?.length || 0} Ofertas Capturadas</span>
-                  </span>
-                  <span className="text-xs font-mono font-bold text-white">
-                    Menor Preço Normalizado: R$ {liveScanResult.bestPrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {liveScanResult.offers?.slice(0, 4).map((off: any, idx: number) => (
-                    <div key={idx} className="p-3 bg-[#141721] rounded-lg border border-[#283044] text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-orange-400">{off.storeName}</span>
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
-                          Confiança: {off.confidenceScore}% ({off.matchQuality})
-                        </span>
-                      </div>
-                      <div className="text-zinc-200 font-medium line-clamp-1">{off.rawTitle}</div>
-                      <div className="flex items-center justify-between text-zinc-400 pt-1 font-mono">
-                        <span className="text-emerald-400 font-bold text-sm">R$ {off.price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        {off.installmentText && <span className="text-[10px]">{off.installmentText}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Tabela de Fontes Homologadas */}
-          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#283044] pb-3">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-orange-400" />
-                  <span>Fontes de Preço & Conectores de Lojas</span>
-                </h3>
-                <p className="text-xs text-zinc-400">Ative ou pause lojas e configure intervalos de rastreio.</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-[#283044] text-zinc-400 font-bold uppercase text-[10px]">
-                    <th className="py-2.5 px-3">Loja / Conector</th>
-                    <th className="py-2.5 px-3">Tipo</th>
-                    <th className="py-2.5 px-3">Confiabilidade</th>
-                    <th className="py-2.5 px-3">Intervalo</th>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3 text-right">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#283044]/60">
-                  {robotSources.map(src => (
-                    <tr key={src.id} className="hover:bg-[#1f2433]/50 transition-colors">
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2.5">
-                          <img src={src.logoUrl} alt={src.name} className="w-6 h-6 rounded-md object-contain bg-white p-0.5" />
-                          <span className="font-bold text-white">{src.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-zinc-300 font-mono text-[11px]">
-                        {src.parserType === 'api_connector' ? '⚡ API Conector' : '🔍 Scraper HTML'}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="text-emerald-400 font-mono font-bold">{src.reliabilityScore}%</span>
-                      </td>
-                      <td className="py-3 px-3 text-zinc-400 font-mono">
-                        {src.scrapeIntervalMinutes} min
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          src.status === 'active' 
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                            : 'bg-zinc-700/50 text-zinc-400'
-                        }`}>
-                          {src.status === 'active' ? 'Ativo' : 'Pausado'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => handleToggleRobotSource(src.id)}
-                          className={`text-xs px-2.5 py-1 rounded font-bold transition-colors ${
-                            src.status === 'active'
-                              ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/40'
-                              : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40'
-                          }`}
-                        >
-                          {src.status === 'active' ? 'Pausar' : 'Ativar'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Logs de Execução do Robô de Preços */}
-          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#283044] pb-3">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Server className="w-5 h-5 text-orange-400" />
-                  <span>Logs de Execução & Auditoria do Robô</span>
-                </h3>
-                <p className="text-xs text-zinc-400">Histórico de varreduras, tempos de resposta e validação de ofertas.</p>
-              </div>
-            </div>
-
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {robotLogs.length === 0 ? (
-                <div className="text-center py-6 text-zinc-500 text-xs">Nenhum log registrado ainda.</div>
-              ) : (
-                robotLogs.map((log, idx) => (
-                  <div key={log.id || idx} className="p-3 bg-[#0D0F15] rounded-xl border border-[#283044] text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${log.status === 'success' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-                        <span className="font-bold text-white">{log.sourceName}</span>
-                        {log.productName && <span className="text-zinc-400">({log.productName})</span>}
-                      </div>
-                      <span className="text-zinc-500 text-[10px] font-mono">
-                        {new Date(log.timestamp).toLocaleTimeString('pt-BR')} • {log.durationMs}ms
-                      </span>
-                    </div>
-                    <p className="text-zinc-300 text-[11px]">{log.message}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-        </div>
-      )}
-
       {/* CONTEÚDO DO GRUPO: 👥 USUÁRIOS */}
       {activeGroup === 'users' && (
         <div className="space-y-6">
@@ -837,6 +604,221 @@ export const AdminPanelPage: React.FC = () => {
       {/* CONTEÚDO DO GRUPO: ⚙️ SISTEMA */}
       {activeGroup === 'system' && (
         <div className="space-y-6">
+          {/* Robô de Preços & Supabase PostgreSQL */}
+          <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#283044] pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Database className="w-5 h-5 text-orange-400" />
+                  <span>Robô de Preços & Infraestrutura Supabase (PostgreSQL)</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Monitoramento contínuo em nuvem, RLS ativo, persistência em PostgreSQL e redundância em memória.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleLoadPriceRobotDiagnostics}
+                  className="px-3 py-1.5 rounded-xl bg-[#0D0F15] border border-[#283044] text-zinc-300 text-xs font-bold hover:text-white transition-colors flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Atualizar Status
+                </button>
+                <button
+                  onClick={handleRunSupabaseAudit}
+                  disabled={isAuditingSupabase}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+                >
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  {isAuditingSupabase ? 'Auditando...' : 'Auditoria Técnica Supabase'}
+                </button>
+                <button
+                  onClick={handleTriggerCronAutomation}
+                  disabled={isTriggeringCron}
+                  className="px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold hover:bg-orange-500/20 transition-colors flex items-center gap-1.5"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  {isTriggeringCron ? 'Disparando...' : 'Acionar Edge Function'}
+                </button>
+                <button
+                  onClick={handleTestPriceRobotPipeline}
+                  disabled={isTestingRobot}
+                  className="btn-orange-primary text-xs px-4 py-1.5 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {isTestingRobot ? 'Testando Pipeline...' : 'Testar RX 6600 (Real)'}
+                </button>
+              </div>
+            </div>
+
+            {/* Provider & Key Status Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-[#0D0F15] p-3.5 rounded-xl border border-[#283044]">
+                <div className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Provedor Ativo</div>
+                <div className="text-sm font-bold text-white mt-1 flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${priceRobotStatus?.provider === 'SUPABASE_POSTGRESQL' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  {priceRobotStatus?.provider === 'SUPABASE_POSTGRESQL' ? 'Supabase Cloud (PostgreSQL)' : 'Contingência em Memória'}
+                </div>
+              </div>
+
+              <div className="bg-[#0D0F15] p-3.5 rounded-xl border border-[#283044]">
+                <div className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Service Role Key (Backend)</div>
+                <div className={`text-xs font-mono font-bold mt-1 ${priceRobotStatus?.serviceRoleKeyConfigured ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                  {priceRobotStatus?.serviceRoleKeyConfigured ? '✓ Configurada com Segurança' : 'Não informada (.env)'}
+                </div>
+              </div>
+
+              <div className="bg-[#0D0F15] p-3.5 rounded-xl border border-[#283044]">
+                <div className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Conector Mercado Livre</div>
+                <div className={`text-xs font-mono font-bold mt-1 ${connectorsInfo?.mercadoLivre?.hasToken ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {connectorsInfo?.mercadoLivre?.hasToken ? '✓ Token Oficial Ativo' : 'Público (403 DataCenter Fallback)'}
+                </div>
+              </div>
+
+              <div className="bg-[#0D0F15] p-3.5 rounded-xl border border-[#283044]">
+                <div className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Edge Function / Cron</div>
+                <div className="text-xs font-mono font-bold text-zinc-200 mt-1">
+                  /price-update (0 * * * *)
+                </div>
+              </div>
+            </div>
+
+            {/* Painel de Resultado da Auditoria Técnica do Supabase */}
+            {supabaseAuditResult && (
+              <div className={`p-4 rounded-xl border text-xs font-mono space-y-3 ${
+                supabaseAuditResult.allPassed 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' 
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+              }`}>
+                <div className="flex items-center justify-between font-bold border-b border-white/10 pb-2">
+                  <span className="flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    <span>Relatório da Auditoria Técnica Supabase ({supabaseAuditResult.allPassed ? '100% Aprovado' : 'Validação Concluída'})</span>
+                  </span>
+                  <span className="text-xs text-zinc-300">
+                    Aprovados: {supabaseAuditResult.summary?.passedCount || 0} | Falhas/Avisos: {supabaseAuditResult.summary?.failedCount || 0}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  {supabaseAuditResult.results?.map((res: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2 text-[11px] p-1.5 rounded bg-black/20">
+                      <span className={`font-bold shrink-0 ${res.passed ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        [{res.passed ? 'PASS' : 'WARN'}] Item {res.step}:
+                      </span>
+                      <div className="space-y-0.5">
+                        <div className="text-white font-semibold">{res.title}</div>
+                        <div className="text-zinc-300 text-[10px]">{res.details}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {supabaseAuditResult.summary?.warnings?.length > 0 && (
+                  <div className="pt-2 border-t border-white/10 text-amber-300 text-[11px]">
+                    <strong>Diagnóstico do Ambiente:</strong> {supabaseAuditResult.summary.warnings.join(' ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Resultado do Teste Real do Pipeline (AMD Radeon RX 6600 8GB) */}
+            {realTestResult && (
+              <div className={`p-4 rounded-xl border text-xs font-mono space-y-3 ${
+                realTestResult.success 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' 
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              }`}>
+                <div className="flex items-center justify-between font-bold border-b border-white/10 pb-2">
+                  <span className="flex items-center gap-2">
+                    {realTestResult.success ? '✓ Pipeline de Preço Executado com Sucesso' : '✗ Falha no Pipeline'}
+                  </span>
+                  <span className="text-zinc-400 font-normal">Duração: {realTestResult.durationMs}ms</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-zinc-300">
+                  <div>Produto: <strong className="text-white">{realTestResult.productTested}</strong></div>
+                  <div>Provedor: <strong className="text-white">{realTestResult.providerUsed}</strong></div>
+                  <div>Ofertas Salvas: <strong className="text-white">{realTestResult.persistedOffersCount}</strong></div>
+                </div>
+
+                {/* Audit Steps */}
+                <div className="space-y-1 pt-1">
+                  <div className="text-[11px] text-zinc-400 font-bold uppercase">Passo a Passo de Execução:</div>
+                  {realTestResult.steps?.map((step: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2 text-[11px] text-zinc-300">
+                      <span className={step.status === 'success' ? 'text-emerald-400 font-bold' : step.status === 'warning' ? 'text-amber-400 font-bold' : 'text-rose-400 font-bold'}>
+                        [{step.step}]
+                      </span>
+                      <span>{step.name}: {step.details}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {realTestResult.extractedOffers && realTestResult.extractedOffers.length > 0 && (
+                  <div className="pt-2 border-t border-white/10">
+                    <div className="text-[11px] text-zinc-400 font-bold uppercase mb-1">Ofertas Extraídas & Normalizadas:</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {realTestResult.extractedOffers.map((off: any, idx: number) => (
+                        <div key={idx} className="bg-black/30 p-2 rounded-lg border border-white/10">
+                          <div className="text-white font-bold">{off.storeName}</div>
+                          <div className="text-orange-400 font-bold">R$ {off.price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                          <div className="text-[10px] text-zinc-400">Score: {off.confidenceScore}% • {off.matchQuality}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Resultado do Acionamento da Edge Function */}
+            {cronResult && (
+              <div className="p-4 rounded-xl border border-orange-500/30 bg-orange-500/10 text-xs font-mono space-y-2 text-orange-200">
+                <div className="font-bold flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-orange-400" />
+                  <span>Resultado da Automação Edge Function (price-update)</span>
+                </div>
+                <div className="text-zinc-300">{cronResult.message}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-zinc-300 pt-1">
+                  <div>Processados: <strong className="text-white">{cronResult.productsProcessed || 0}</strong></div>
+                  <div>Ofertas: <strong className="text-white">{cronResult.offersUpdated || 0}</strong></div>
+                  <div>Quedas: <strong className="text-white">{cronResult.priceDropsFound || 0}</strong></div>
+                  <div>Duração: <strong className="text-white">{cronResult.durationMs || 0}ms</strong></div>
+                </div>
+              </div>
+            )}
+
+            {/* Tabela de Conectores Homologados */}
+            <div className="pt-2">
+              <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-3">Conectores de Lojas Homologadas</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {connectorsInfo?.stores?.map((store: any) => (
+                  <div key={store.id} className="bg-[#0D0F15] p-3.5 rounded-xl border border-[#283044] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">{store.name}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        store.status === 'FUNCIONAL_COM_LIMITACOES' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                        store.status === 'TOTALMENTE_FUNCIONAL' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                        'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30'
+                      }`}>
+                        {store.status === 'FUNCIONAL_COM_LIMITACOES' ? 'Funcional c/ Limites' :
+                         store.status === 'TOTALMENTE_FUNCIONAL' ? 'Totalmente Funcional' : 'Apenas Estrutura'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-zinc-400">
+                      Mecanismo: <span className="text-zinc-200">{store.mechanism}</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500">
+                      {store.notes}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Teste de Conexão com Firestore */}
           <div className="bg-[#141721] border border-[#283044] rounded-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">

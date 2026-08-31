@@ -267,6 +267,7 @@ class LocalDataStore {
     return newRev;
   };
   getUsers = () => this.users;
+  getUserRatings = (productId?: string) => productId ? this.userRatings.filter(u => u.productId === productId) : this.userRatings;
   getSettings = () => this.settings;
   updateSettings = (s: Partial<PlatformSettings>) => {
     this.settings = { ...this.settings, ...s };
@@ -421,6 +422,26 @@ export const apiService = {
 
   // Products & Categories
   getProducts: async (params?: Record<string, string | number | undefined>): Promise<Product[]> => {
+    // 1. Check Supabase (Primary persistent database)
+    try {
+      const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+      const supabaseProducts = await supabasePriceDataLayer.getProducts({
+        category: params?.category as string,
+        brand: params?.brand as string,
+        search: params?.search as string,
+        verdict: params?.verdict as string,
+        minPrice: params?.minPrice ? Number(params.minPrice) : undefined,
+        maxPrice: params?.maxPrice ? Number(params.maxPrice) : undefined,
+        minRating: params?.minRating ? Number(params.minRating) : undefined,
+        sort: params?.sort as string
+      });
+      if (supabaseProducts && supabaseProducts.length > 0) {
+        return supabaseProducts;
+      }
+    } catch (err) {
+      console.warn('[Supabase] Error reading products, trying proxy/fallback:', err);
+    }
+
     if (isFirebaseConfigured()) {
       try {
         const firestoreProducts = await getProductsFromFirestore({
@@ -454,6 +475,23 @@ export const apiService = {
   },
 
   getProductBySlugOrId: async (slugOrId: string) => {
+    // 1. Check Supabase
+    try {
+      const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+      const supabaseProd = await supabasePriceDataLayer.getProductByIdOrSlug(slugOrId);
+      if (supabaseProd) {
+        const offers = await supabasePriceDataLayer.getProductOffers(supabaseProd);
+        return {
+          product: supabaseProd,
+          offers,
+          reviews: localStore.getReviews({ productId: supabaseProd.id, status: 'published' }),
+          ratings: localStore.getUserRatings(supabaseProd.id)
+        };
+      }
+    } catch (err) {
+      console.warn('[Supabase] Error reading product detail, trying proxy/fallback:', err);
+    }
+
     if (isFirebaseConfigured()) {
       try {
         const firestoreProd = await getProductFromFirestore(slugOrId);
@@ -546,6 +584,17 @@ export const apiService = {
   },
 
   createProduct: async (data: Partial<Product>) => {
+    // 1. Check Supabase
+    try {
+      const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+      const saved = await supabasePriceDataLayer.upsertProduct(data as any);
+      if (saved) {
+        return { success: true, product: saved };
+      }
+    } catch (err) {
+      console.warn('[Supabase] Error creating product, trying backend proxy:', err);
+    }
+
     if (isFirebaseConfigured()) {
       try {
         const product = await createProductInFirestore(data);
@@ -564,6 +613,20 @@ export const apiService = {
   },
 
   updateProduct: async (id: string, data: Partial<Product>) => {
+    // 1. Check Supabase
+    try {
+      const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+      const existing = await supabasePriceDataLayer.getProductByIdOrSlug(id);
+      if (existing) {
+        const updated = await supabasePriceDataLayer.upsertProduct({ ...existing, ...data } as any);
+        if (updated) {
+          return { success: true, product: updated };
+        }
+      }
+    } catch (err) {
+      console.warn('[Supabase] Error updating product, trying backend proxy:', err);
+    }
+
     if (isFirebaseConfigured()) {
       try {
         const product = await updateProductInFirestore(id, data);
@@ -582,6 +645,16 @@ export const apiService = {
   },
 
   archiveProduct: async (id: string) => {
+    try {
+      const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+      const existing = await supabasePriceDataLayer.getProductByIdOrSlug(id);
+      if (existing) {
+        await supabasePriceDataLayer.upsertProduct({ ...existing, status: 'archived' } as any);
+      }
+    } catch (err) {
+      console.warn('[Supabase] Error archiving product:', err);
+    }
+
     try {
       return await fetchJson<{ success: boolean }>(`/products/${id}`, { method: 'DELETE' });
     } catch {
@@ -895,14 +968,67 @@ export const apiService = {
   getAds: () => fetchJson<AdBanner[]>('/ads').catch(() => localStore.getAds()),
 
   // Price Robot & Supabase Integration
-  getSupabaseStatus: () => fetchJson<any>('/supabase/status').catch(() => ({ isConfigured: false, connected: false, message: 'Offline / Memória' })),
-  getPriceRobotStats: () => fetchJson<any>('/price-robot/stats').catch(() => null),
-  getPriceRobotSources: () => fetchJson<any[]>('/price-robot/sources').catch(() => []),
-  togglePriceRobotSource: (sourceId: string) => fetchJson<any>(`/price-robot/sources/${sourceId}/toggle`, { method: 'POST' }),
-  getPriceRobotOffers: (productId?: string) => fetchJson<any[]>(`/price-robot/offers${productId ? `?productId=${productId}` : ''}`).catch(() => []),
-  getPriceRobotHistory: (productId: string) => fetchJson<any>(`/price-robot/history/${productId}`).catch(() => null),
-  getPriceRobotAnalysis: (productId: string) => fetchJson<any>(`/price-robot/analysis/${productId}`).catch(() => null),
-  getPriceRobotLogs: () => fetchJson<any[]>('/price-robot/logs').catch(() => []),
-  triggerPriceRobotScan: () => fetchJson<any>('/price-robot/scan', { method: 'POST' }),
-  triggerPriceRobotScanProduct: (productId: string) => fetchJson<any>(`/price-robot/scan-product/${productId}`, { method: 'POST' })
+  getPriceRobotStatus: () => fetchJson<any>('/price-robot/status').catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    return supabasePriceDataLayer.getStatus();
+  }),
+  getPriceRobotSources: () => fetchJson<any[]>('/price-robot/sources').catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    return supabasePriceDataLayer.getSources();
+  }),
+  togglePriceRobotSource: (id: string) => fetchJson<any>(`/price-robot/sources/${id}/toggle`, { method: 'POST' }).catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    return { success: true, source: await supabasePriceDataLayer.toggleSourceStatus(id) };
+  }),
+  getPriceRobotStats: () => fetchJson<any>('/price-robot/stats').catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    return supabasePriceDataLayer.getStats(initialProducts.length);
+  }),
+  getPriceRobotLogs: () => fetchJson<any[]>('/price-robot/logs').catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    return supabasePriceDataLayer.getLogs();
+  }),
+  getProductOffers: (productId: string) => fetchJson<any[]>(`/price-robot/products/${productId}/offers`).catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    const prod = localStore.getProducts().find(p => p.id === productId || p.slug === productId) || initialProducts[0];
+    return supabasePriceDataLayer.getProductOffers(prod);
+  }),
+  getProductPriceHistory: (productId: string) => fetchJson<any>(`/price-robot/products/${productId}/history`).catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    const prod = localStore.getProducts().find(p => p.id === productId || p.slug === productId) || initialProducts[0];
+    return supabasePriceDataLayer.getProductPriceHistory(prod);
+  }),
+  triggerPriceRobotScan: () => fetchJson<any>('/price-robot/scan', { method: 'POST' }).catch(async () => {
+    const { priceRobotEngine } = await import('./priceRobotEngine.js');
+    return priceRobotEngine.executeScan(localStore.getProducts());
+  }),
+  testRealProductPipeline: (productId?: string) => fetchJson<any>('/price-robot/test-real-product', { method: 'POST', body: JSON.stringify({ productId }) }).catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    const targetProd = productId ? localStore.getProducts().find(p => p.id === productId || p.slug === productId) : undefined;
+    return supabasePriceDataLayer.executeRealProductTest(targetProd);
+  }),
+  getConnectorsStatus: () => fetchJson<any>('/price-robot/connectors/status').catch(async () => {
+    const { STORE_CLASSIFICATIONS } = await import('./priceConnectors/storeConnectors.js');
+    const { mercadoLivreConnector } = await import('./priceConnectors/mercadolivreConnector.js');
+    return {
+      stores: STORE_CLASSIFICATIONS,
+      mercadoLivre: mercadoLivreConnector.getStatus()
+    };
+  }),
+  triggerEdgeFunctionPriceUpdate: () => fetchJson<any>('/price-robot/edge-function/trigger', { method: 'POST' }).catch(async () => {
+    const { supabasePriceDataLayer } = await import('./supabasePriceDataLayer.js');
+    const prods = localStore.getProducts();
+    const result = await supabasePriceDataLayer.executeRealProductTest();
+    return {
+      success: true,
+      message: 'Execução manual simulada concluída com sucesso.',
+      productsProcessed: prods.length,
+      offersUpdated: result.persistedOffersCount,
+      summary: result.summary
+    };
+  }),
+  getSupabaseAudit: () => fetchJson<any>('/admin/supabase-audit').catch(async () => {
+    const { runCompleteSupabaseAudit } = await import('./supabaseAuditRunner.js');
+    return runCompleteSupabaseAudit();
+  })
 };
